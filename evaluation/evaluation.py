@@ -5,7 +5,7 @@ import argparse
 
 problem_files = {
     "gripper/domain.pddl": [
-    "gripper/prob01.pddl"
+        "gripper/prob01.pddl"
     ],
     "npuzzle/n-puzzle-typed.pddl": [
         "npuzzle/p2.pddl",
@@ -24,9 +24,7 @@ path_to_fast_downward = "../fast-downward.py"
 # Default search strategy and time limit
 default_search_strategy = 'astar(hm())'
 default_time_limit = 60
-
-# Log file to store the results
-log_file = "log.txt"
+default_log_file = "output.txt"
 
 def run_fast_downward(domain, problem, search_strategy, time_limit):
     command = [
@@ -87,9 +85,16 @@ def main():
         default=default_time_limit,
         help="Specify the time limit for each problem in seconds (default: 60)"
     )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=default_log_file,
+        help="Specify the log file name (default: 'output.txt')"
+    )
     args = parser.parse_args()
     search_strategy = args.search
     time_limit = args.tlimit
+    log_file = args.output
 
     if not Path(path_to_fast_downward).exists():
         print("Error: 'fast-downward.py' not found.")
