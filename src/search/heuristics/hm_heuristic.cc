@@ -12,6 +12,11 @@
 using namespace std;
 
 namespace hm_heuristic {
+
+/*
+ * Constructor for the HMHeuristic class.
+ * Precomputes all possible tuples of size <= m.
+ */
 HMHeuristic::HMHeuristic(
     int m, const shared_ptr<AbstractTask> &transform,
     bool cache_estimates, const string &description,
@@ -35,6 +40,11 @@ bool HMHeuristic::dead_ends_are_reliable() const {
 }
 
 
+/*
+ * Computes the h^m value for a given state:
+ * Checks if state is a goal state (heuristic = 0 if true). Initializes h^m table with state facts.
+ * Updates h^m table to propagate values. Evaluates goal facts to compute the heuristic value.
+ */
 int HMHeuristic::compute_heuristic(const State &ancestor_state) {
     State state = convert_ancestor_state(ancestor_state);
     if (task_properties::is_goal_state(task_proxy, state)) {
@@ -53,7 +63,10 @@ int HMHeuristic::compute_heuristic(const State &ancestor_state) {
     }
 }
 
-
+/*
+ * Initializes h^m table.
+ * If tuple is contained in input tuple assigns 0, and infinity otherwise.
+ */
 void HMHeuristic::init_hm_table(const Tuple &t) {
     for (auto &hm_ent : hm_table) {
         const Tuple &tuple = hm_ent.first;
@@ -62,7 +75,13 @@ void HMHeuristic::init_hm_table(const Tuple &t) {
     }
 }
 
-
+/*
+ * Iteratively updates the h^m table until no further improvements are made.
+ * For each operator:
+ * - Computes the h value of preconditions.
+ * - If preconditions are reachable generates all partial effect tuples for table update.
+ * - Extends partial tuples with size < m to explore potential improvements.
+ */
 void HMHeuristic::update_hm_table() {
     do {
         was_updated = false;
@@ -89,6 +108,11 @@ void HMHeuristic::update_hm_table() {
 }
 
 
+/*
+ * Extends given tuple by adding additional facts.
+ * Checks for contradictions between operator effects and tuple.
+ * If no contradiction exists, updates h^m table if improvements are found.
+ */
 void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) {
     for (auto &hm_ent : hm_table) {
         const Tuple &tuple = hm_ent.first;
@@ -135,6 +159,9 @@ void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) {
 }
 
 
+/*
+ * Evaluates tuple by computing the maximum heuristic value among all its partial tuples.
+ */
 int HMHeuristic::eval(const Tuple &t) const {
     vector<Tuple> partial;
     generate_all_partial_tuples(t, partial);
@@ -150,7 +177,10 @@ int HMHeuristic::eval(const Tuple &t) const {
     return max;
 }
 
-
+/*
+ * Updates the heuristic value of a tuple in the h^m table.
+ * Sets "was_updated" flag to true to indicate a change occurred.
+ */
 int HMHeuristic::update_hm_entry(const Tuple &t, int val) {
     assert(hm_table.count(t) == 1);
     if (hm_table[t] > val) {
@@ -161,6 +191,10 @@ int HMHeuristic::update_hm_entry(const Tuple &t, int val) {
 }
 
 
+/*
+ * Checks if tuple is fully contained in another tuple.
+ * Returns 0 if fully contained, and infinity otherwise.
+ */
 int HMHeuristic::check_tuple_in_tuple(
     const Tuple &tuple, const Tuple &big_tuple) const {
     for (const FactPair &fact0 : tuple) {
@@ -207,7 +241,10 @@ bool HMHeuristic::contradict_effect_of(
     return false;
 }
 
-
+/*
+ * Recursively generates all possible tuples of size <= m over variables of the task.
+ * All possible states with <= m variables are stored in hm_table.
+ */
 void HMHeuristic::generate_all_tuples() {
     Tuple t;
     generate_all_tuples_aux(0, m, t);
@@ -230,6 +267,9 @@ void HMHeuristic::generate_all_tuples_aux(int var, int sz, const Tuple &base) {
 }
 
 
+/*
+ * Generates all partial tuples of size <= m from given base tuple.
+ */
 void HMHeuristic::generate_all_partial_tuples(
     const Tuple &base_tuple, vector<Tuple> &res) const {
     Tuple t;
