@@ -123,13 +123,16 @@ void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) {
                 break;
             }
         }
-        if (!contradict && (tuple.size() > t.size()) && (check_tuple_in_tuple(t, tuple) == 0)) {
+        // only if t is fully contained in tuple
+        if (!contradict && (tuple.size() > t.size()) && (check_tuple_in_tuple(t, tuple) == 0)) { // V = {a, b, c}, o = {a, b}, hm_table(b, c) -> pre = {a, c)
             Tuple pre = get_operator_pre(op);
 
             Tuple others;
             for (const FactPair &fact : tuple) {
+                // if fact not contained in t
                 if (find(t.begin(), t.end(), fact) == t.end()) {
                     others.push_back(fact);
+                    // if fact not contained in pre
                     if (find(pre.begin(), pre.end(), fact) == pre.end()) {
                         pre.push_back(fact);
                     }
@@ -138,6 +141,7 @@ void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) {
 
             sort(pre.begin(), pre.end());
 
+            // Checks if no duplicate fact var in pre
             set<int> vars;
             bool is_valid = true;
             for (const FactPair &fact : pre) {
@@ -147,7 +151,7 @@ void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) {
                 }
                 vars.insert(fact.var);
             }
-
+            // Update Table
             if (is_valid) {
                 int c2 = eval(pre);
                 if (c2 != numeric_limits<int>::max()) {
