@@ -12,7 +12,7 @@ experiments/hm/data/revision-cache/
 # Ignore all `*.tar.xz` and `*.tgz` files
 *.tar.xz
 *.tgz
-
+*.venv
 
 ### VisualStudio ###
 ## Ignore Visual Studio temporary files, build results, and
