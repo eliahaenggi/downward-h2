@@ -6,13 +6,15 @@ __pycache__/
 /misc/.tox/
 /misc/autodoc/downward-xmlrpc.secret
 
-# Ignore cache directories
-experiments/hm/data/revision-cache/
+# Ignore all __pycache__ directories and .pyc files
+**/__pycache__/
+**/*.pyc
+**/.venv
 
-# Ignore all `*.tar.xz` and `*.tgz` files
-*.tar.xz
-*.tgz
-*.venv
+# Ignore everything in the data directory except results
+experiments/hm/data/hm
+experiments/hm/data/revision_cache
+
 
 ### VisualStudio ###
 ## Ignore Visual Studio temporary files, build results, and
