@@ -1,5 +1,5 @@
-#ifndef HEURISTICS_HM_HEURISTIC_H
-#define HEURISTICS_HM_HEURISTIC_H
+#ifndef HEURISTICS_HTWO_HEURISTIC_H
+#define HEURISTICS_HTWO_HEURISTIC_H
 
 #include "../heuristic.h"
 
@@ -8,12 +8,13 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace plugins {
 class Options;
 }
 
-namespace hm_heuristic {
+namespace htwo_heuristic {
 /*
   Haslum's h^m heuristic family ("critical path heuristics").
 
@@ -21,7 +22,7 @@ namespace hm_heuristic {
   speed benchmarks.
 */
 
-class HMHeuristic : public Heuristic {
+class HTwoHeuristic : public Heuristic {
     using Tuple = std::vector<FactPair>;
     // parameters
     const int m;
@@ -30,7 +31,7 @@ class HMHeuristic : public Heuristic {
     const Tuple goals;
 
     // h^m table
-    std::map<Tuple, int> hm_table; // Memory: O(mV^m)
+    std::map<Tuple, int> hm_table;
     bool was_updated;
 
     // auxiliary methods
@@ -50,10 +51,11 @@ class HMHeuristic : public Heuristic {
     void generate_all_tuples();
     void generate_all_tuples_aux(int var, int sz, const Tuple &base);
 
-    void generate_all_partial_tuples(const Tuple &base_tuple,
+	void generate_all_partial_tuples(const Tuple &base_tuple,
                                      std::vector<Tuple> &res) const;
-    void generate_all_partial_tuples_aux(const Tuple &base_tuple, const Tuple &t, int index,
+	void generate_all_partial_tuples_aux(const Tuple &base_tuple, const Tuple &t, int index,
                                          int sz, std::vector<Tuple> &res) const;
+
 
     void dump_table() const;
 
@@ -61,7 +63,7 @@ protected:
     virtual int compute_heuristic(const State &ancestor_state) override;
 
 public:
-    HMHeuristic(
+    HTwoHeuristic(
         int m, const std::shared_ptr<AbstractTask> &transform,
         bool cache_estimates, const std::string &description,
         utils::Verbosity verbosity);

@@ -1,4 +1,4 @@
-#include "hm_heuristic.h"
+#include "htwo_heuristic.h"
 
 #include "../plugins/plugin.h"
 
@@ -11,13 +11,13 @@
 
 using namespace std;
 
-namespace hm_heuristic {
+namespace htwo_heuristic {
 
 /*
  * Constructor for the HMHeuristic class.
  * Precomputes all possible tuples of size <= m.
  */
-HMHeuristic::HMHeuristic(
+HTwoHeuristic::HTwoHeuristic(
     int m, const shared_ptr<AbstractTask> &transform,
     bool cache_estimates, const string &description,
     utils::Verbosity verbosity)
@@ -35,7 +35,7 @@ HMHeuristic::HMHeuristic(
 }
 
 
-bool HMHeuristic::dead_ends_are_reliable() const {
+bool HTwoHeuristic::dead_ends_are_reliable() const {
     return !task_properties::has_axioms(task_proxy) && !has_cond_effects;
 }
 
@@ -45,7 +45,7 @@ bool HMHeuristic::dead_ends_are_reliable() const {
  * Checks if state is a goal state (heuristic = 0 if true). Initializes h^m table with state facts.
  * Updates h^m table to propagate values. Evaluates goal facts to compute the heuristic value.
  */
-int HMHeuristic::compute_heuristic(const State &ancestor_state) {
+int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     State state = convert_ancestor_state(ancestor_state);
     if (task_properties::is_goal_state(task_proxy, state)) {
         return 0;
@@ -67,7 +67,7 @@ int HMHeuristic::compute_heuristic(const State &ancestor_state) {
  * Initializes h^m table.
  * If tuple is contained in input tuple assigns 0, and infinity otherwise.
  */
-void HMHeuristic::init_hm_table(const Tuple &t) {
+void HTwoHeuristic::init_hm_table(const Tuple &t) {
     for (auto &hm_ent : hm_table) {
         const Tuple &tuple = hm_ent.first;
         int h_val = check_tuple_in_tuple(tuple, t);
@@ -81,28 +81,25 @@ void HMHeuristic::init_hm_table(const Tuple &t) {
  * - Computes the h value of preconditions.
  * - If preconditions are reachable generates all partial effect tuples for table update.
  * - Extends partial tuples with size < m to explore potential improvements.
- * - Runtime: O(|O|mV^4m log V) with following assumptions:
- *  - |pre(o)|, |eff(o)| = O(V)
- *  - O(V^m) updates of hm_table
  */
-void HMHeuristic::update_hm_table() { // O(|O|mV^(4m) log V)
-    do {  // O(|O|mV^4m log V) if num iterations = O(V^m)
+void HTwoHeuristic::update_hm_table() {
+    do {
         was_updated = false;
 
-        for (OperatorProxy op : task_proxy.get_operators()) { // O(|O|mV^3m log V)
+        for (OperatorProxy op : task_proxy.get_operators()) {
             Tuple pre = get_operator_pre(op);
 
             int c1 = eval(pre);
             if (c1 != numeric_limits<int>::max()) {
                 Tuple eff = get_operator_eff(op);
                 vector<Tuple> partial_effs;
-                generate_all_partial_tuples(eff, partial_effs); // O(V^m) if |eff| = O(V)
-                for (Tuple &partial_eff : partial_effs) { // O(mV^3m log V)
+                generate_all_partial_tuples(eff, partial_effs);
+                for (Tuple &partial_eff : partial_effs) {
                     update_hm_entry(partial_eff, c1 + op.get_cost());
 
                     int eff_size = partial_eff.size();
                     if (eff_size < m) {
-                        extend_tuple(partial_eff, op); // O(mV^2m log V)
+                        extend_tuple(partial_eff, op);
                     }
                 }
             }
@@ -116,39 +113,35 @@ void HMHeuristic::update_hm_table() { // O(|O|mV^(4m) log V)
  * Checks for contradictions between operator effects and tuple.
  * If no contradiction exists, updates h^m table if improvements are found.
  */
-void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) { // O(mV^2m log V)
-    for (auto &hm_ent : hm_table) { // O(mV^2m log V)
+void HTwoHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) {
+    for (auto &hm_ent : hm_table) {
         const Tuple &tuple = hm_ent.first;
         bool contradict = false;
-        for (const FactPair &fact : tuple) { // O(mV log V)
-            if (contradict_effect_of(op, fact.var, fact.value)) { // O(V log V)
+        for (const FactPair &fact : tuple) {
+            if (contradict_effect_of(op, fact.var, fact.value)) {
                 contradict = true;
                 break;
             }
         }
         // only if t is fully contained in tuple
         if (!contradict && (tuple.size() > t.size()) && (check_tuple_in_tuple(t, tuple) == 0)) { // V = {a, b, c}, o = {a, b}, hm_table(b, c) -> pre = {a, c)
-            Tuple pre = get_operator_pre(op); // O(V log V)
+            Tuple pre = get_operator_pre(op);
 
-            Tuple others;
-            for (const FactPair &fact : tuple) { // O(V log V)
-                // if fact not contained in t
+            for (const FactPair &fact : tuple) {
                 if (find(t.begin(), t.end(), fact) == t.end()) {
-                    others.push_back(fact);
-                    // if fact not contained in pre
                     if (find(pre.begin(), pre.end(), fact) == pre.end()) {
                         pre.push_back(fact);
                     }
                 }
             }
 
-            sort(pre.begin(), pre.end()); // O(V log V)
+            sort(pre.begin(), pre.end());
 
             // Checks if no duplicate fact var in pre
-            set<int> vars;
+            unordered_set<int> vars;
             bool is_valid = true;
-            for (const FactPair &fact : pre) { // O(V log V)
-                if (vars.count(fact.var) != 0) { // O(log V)
+            for (const FactPair &fact : pre) {
+                if (vars.contains(fact.var)) {
                     is_valid = false;
                     break;
                 }
@@ -156,9 +149,9 @@ void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) { // O(m
             }
             // Update Table
             if (is_valid) {
-                int c2 = eval(pre); // O(mV^m log V) if |pre| = O(V)
+                int c2 = eval(pre);
                 if (c2 != numeric_limits<int>::max()) {
-                    update_hm_entry(tuple, c2 + op.get_cost()); // O(m log V)
+                    update_hm_entry(tuple, c2 + op.get_cost());
                 }
             }
         }
@@ -169,17 +162,15 @@ void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) { // O(m
 /*
  * Evaluates tuple by computing the maximum heuristic value among all its partial tuples.
  */
-int HMHeuristic::eval(const Tuple &t) const {  // O(mV^m log V) 
+int HTwoHeuristic::eval(const Tuple &t) const {
     vector<Tuple> partial;
-    generate_all_partial_tuples(t, partial); // O(V^m)
+    generate_all_partial_tuples(t, partial);
     int max = 0;
-    for (Tuple &tuple : partial) { // O (mV^m log V)
-        assert(hm_table.count(tuple) == 1); // O(log V^m)
+    for (Tuple &tuple : partial) {
+        assert(hm_table.count(tuple) == 1);
 
-        int h = hm_table.at(tuple); // O(log V^m)
-        if (h > max) {
-            max = h;
-        }
+        int h = hm_table.at(tuple);
+        max = std::max(h, max);
     }
     return max;
 }
@@ -188,7 +179,7 @@ int HMHeuristic::eval(const Tuple &t) const {  // O(mV^m log V)
  * Updates the heuristic value of a tuple in the h^m table.
  * Sets "was_updated" flag to true to indicate a change occurred.
  */
-int HMHeuristic::update_hm_entry(const Tuple &t, int val) {
+int HTwoHeuristic::update_hm_entry(const Tuple &t, int val) {
     assert(hm_table.count(t) == 1);
     if (hm_table[t] > val) {
         hm_table[t] = val;
@@ -202,7 +193,7 @@ int HMHeuristic::update_hm_entry(const Tuple &t, int val) {
  * Checks if tuple is fully contained in another tuple.
  * Returns 0 if fully contained, and infinity otherwise.
  */
-int HMHeuristic::check_tuple_in_tuple(
+int HTwoHeuristic::check_tuple_in_tuple(
     const Tuple &tuple, const Tuple &big_tuple) const {
     for (const FactPair &fact0 : tuple) {
         bool found = false;
@@ -219,14 +210,16 @@ int HMHeuristic::check_tuple_in_tuple(
     return 0;
 }
 
-HMHeuristic::Tuple HMHeuristic::get_operator_pre(const OperatorProxy &op) const {
+
+HTwoHeuristic::Tuple HTwoHeuristic::get_operator_pre(const OperatorProxy &op) const {
+
     Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     sort(preconditions.begin(), preconditions.end());
     return preconditions;
 }
 
 
-HMHeuristic::Tuple HMHeuristic::get_operator_eff(const OperatorProxy &op) const {
+HTwoHeuristic::Tuple HTwoHeuristic::get_operator_eff(const OperatorProxy &op) const {
     Tuple effects;
     for (EffectProxy eff : op.get_effects()) {
         effects.push_back(eff.get_fact().get_pair());
@@ -236,7 +229,7 @@ HMHeuristic::Tuple HMHeuristic::get_operator_eff(const OperatorProxy &op) const 
 }
 
 
-bool HMHeuristic::contradict_effect_of(
+bool HTwoHeuristic::contradict_effect_of(
     const OperatorProxy &op, int var, int val) const {
     for (EffectProxy eff : op.get_effects()) {
         FactProxy fact = eff.get_fact();
@@ -251,13 +244,13 @@ bool HMHeuristic::contradict_effect_of(
  * Recursively generates all possible tuples of size <= m over variables of the task.
  * All possible states with <= m variables are stored in hm_table.
  */
-void HMHeuristic::generate_all_tuples() {
+void HTwoHeuristic::generate_all_tuples() {
     Tuple t;
     generate_all_tuples_aux(0, m, t);
 }
 
 
-void HMHeuristic::generate_all_tuples_aux(int var, int sz, const Tuple &base) {
+void HTwoHeuristic::generate_all_tuples_aux(int var, int sz, const Tuple &base) {
     int num_variables = task_proxy.get_variables().size();
     for (int i = var; i < num_variables; ++i) {
         int domain_size = task_proxy.get_variables()[i].get_domain_size();
@@ -276,14 +269,14 @@ void HMHeuristic::generate_all_tuples_aux(int var, int sz, const Tuple &base) {
 /*
  * Generates all partial tuples of size <= m from given base tuple.
  */
-void HMHeuristic::generate_all_partial_tuples(
+void HTwoHeuristic::generate_all_partial_tuples(
     const Tuple &base_tuple, vector<Tuple> &res) const {
     Tuple t;
     generate_all_partial_tuples_aux(base_tuple, t, 0, m, res);
 }
 
 
-void HMHeuristic::generate_all_partial_tuples_aux(
+void HTwoHeuristic::generate_all_partial_tuples_aux(
     const Tuple &base_tuple, const Tuple &t, int index, int sz, vector<Tuple> &res) const {
     if (sz == 1) {
         for (size_t i = index; i < base_tuple.size(); ++i) {
@@ -302,7 +295,7 @@ void HMHeuristic::generate_all_partial_tuples_aux(
 }
 
 
-void HMHeuristic::dump_table() const {
+void HTwoHeuristic::dump_table() const {
     if (log.is_at_least_debug()) {
         for (auto &hm_ent : hm_table) {
             log << "h(" << hm_ent.first << ") = " << hm_ent.second << endl;
@@ -310,14 +303,14 @@ void HMHeuristic::dump_table() const {
     }
 }
 
-class HMHeuristicFeature
-    : public plugins::TypedFeature<Evaluator, HMHeuristic> {
+class HTwoHeuristicFeature
+    : public plugins::TypedFeature<Evaluator, HTwoHeuristic> {
 public:
-    HMHeuristicFeature() : TypedFeature("hm") {
-        document_title("h^m heuristic");
+    HTwoHeuristicFeature() : TypedFeature("h2") {
+        document_title("h^2 heuristic");
 
         add_option<int>("m", "subset size", "2", plugins::Bounds("1", "infinity"));
-        add_heuristic_options_to_feature(*this, "hm");
+        add_heuristic_options_to_feature(*this, "h2");
 
         document_language_support("action costs", "supported");
         document_language_support("conditional effects", "ignored");
@@ -335,15 +328,15 @@ public:
         document_property("preferred operators", "no");
     }
 
-    virtual shared_ptr<HMHeuristic> create_component(
+    virtual shared_ptr<HTwoHeuristic> create_component(
         const plugins::Options &opts,
         const utils::Context &) const override {
-        return plugins::make_shared_from_arg_tuples<HMHeuristic>(
+        return plugins::make_shared_from_arg_tuples<HTwoHeuristic>(
             opts.get<int>("m"),
             get_heuristic_arguments_from_options(opts)
             );
     }
 };
 
-static plugins::FeaturePlugin<HMHeuristicFeature> _plugin;
+static plugins::FeaturePlugin<HTwoHeuristicFeature> _plugin;
 }
