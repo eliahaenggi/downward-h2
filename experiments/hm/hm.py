@@ -15,12 +15,13 @@ BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
 REVISION_CACHE = (
     os.environ.get("DOWNWARD_REVISION_CACHE") or project.DIR / "data" / "revision-cache"
 )
-SUITE = ["depot:p01.pddl", "grid:prob01.pddl", "gripper:prob01.pddl"]
+SUITE = ["depot:p01.pddl", "driverlog:p01.pddl", "gripper:prob01.pddl", "gripper:prob02.pddl", "mystery:prob01.pddl", "openstacks:p01.pddl", "philosophers:p01-phil2.pddl", "rovers:p01.pddl", "satellite:p01-pfile1.pddl","trucks:p01.pddl"]
 
 ENV = project.LocalEnvironment(processes=2)
 
 CONFIGS = [
     ("hm_astar", ["--search", "astar(hm())"]),
+    ("h2_astar", ["--search", "astar(h2())"])
 ]
 BUILD_OPTIONS = []
 DRIVER_OPTIONS = [
