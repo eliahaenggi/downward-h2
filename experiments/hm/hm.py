@@ -15,7 +15,7 @@ BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
 REVISION_CACHE = (
     os.environ.get("DOWNWARD_REVISION_CACHE") or project.DIR / "data" / "revision-cache"
 )
-SUITE = ["logistics00:probLOGISTICS-4-0.pddl"]
+SUITE = ["logistics00:probLOGISTICS-4-0.pddl", "gripper:prob01.pddl", "gripper:prob02.pddl"]
 
 ENV = project.LocalEnvironment(processes=2)
 

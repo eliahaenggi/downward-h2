@@ -5,7 +5,6 @@
 
 #include <algorithm>
 #include <iostream>
-#include <map>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -33,17 +32,16 @@ class HTwoHeuristic : public Heuristic {
     const Tuple goals;
 
 
-    struct PairHash {
-        std::size_t operator()(const Pair& pair) const {
-            std::string hash = std::to_string(pair.first.var) + std::to_string(pair.first.value);
-            hash += std::to_string(pair.second.var) + std::to_string(pair.second.value);
-            return std::hash<std::string>()(hash);
-        }
-    };
+struct PairHash {
+    std::size_t operator()(const Pair &pair) const {
+        const int MOD = 1009; // Prime greater than max domain size
+        std::size_t h1 = pair.first.var * MOD + pair.first.value;
+        std::size_t h2 = pair.second.var * MOD + pair.second.value;
+        return h1 * MOD + h2;
+    }
+};
     // h^m table
     std::unordered_map<Pair, int, PairHash> hm_table;
-
-
     mutable std::unordered_map<int, Tuple> precondition_cache;
 
     bool was_updated;
@@ -52,8 +50,9 @@ class HTwoHeuristic : public Heuristic {
     void init_hm_table(const Tuple &state_facts);
     void update_hm_table();
     int eval(const Tuple &t) const;
+    int hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const;
     int update_hm_entry(const Pair &p, int val);
-    void extend_tuple(const Pair &p, const OperatorProxy &op);
+    void extend_tuple(const Pair &p, const OperatorProxy &op, int eval);
 
     bool check_tuple_in_tuple(const Pair &tuple, const Tuple &big_tuple) const;
 

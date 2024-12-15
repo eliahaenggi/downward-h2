@@ -8,8 +8,6 @@
 #include <cassert>
 #include <limits>
 #include <set>
-#include <thread>
-#include <chrono>
 
 using namespace std;
 
@@ -99,16 +97,17 @@ void HTwoHeuristic::update_hm_table() {
             Tuple pre = get_operator_pre(op);
 
             int c1 = eval(pre);
-            if (c1 != numeric_limits<int>::max()) {
-                Tuple eff = get_operator_eff(op);
-                vector<Pair> partial_effs;
-                generate_all_partial_tuples(eff, partial_effs);
-                for (Pair &partial_eff : partial_effs) {
-                    update_hm_entry(partial_eff, c1 + op.get_cost());
+            if (c1 == numeric_limits<int>::max()) {
+            	continue;
+            }
+            Tuple eff = get_operator_eff(op);
+            vector<Pair> partial_effs;
+            generate_all_partial_tuples(eff, partial_effs);
+            for (Pair &partial_eff : partial_effs) {
+                update_hm_entry(partial_eff, c1 + op.get_cost());
 
-                    if (partial_eff.second.var == -1 ) {
-                        extend_tuple(partial_eff, op);
-                    }
+                if (partial_eff.second.var == -1) {
+                    extend_tuple(partial_eff, op, c1);
                 }
             }
         }
@@ -121,55 +120,33 @@ void HTwoHeuristic::update_hm_table() {
  * Checks for contradictions between operator effects and tuple.
  * If no contradiction exists, updates h^m table if improvements are found.
  */
-void HTwoHeuristic::extend_tuple(const Pair &p, const OperatorProxy &op) {
+void HTwoHeuristic::extend_tuple(const Pair &p, const OperatorProxy &op, int eval) {
+	Tuple pre = get_operator_pre(op);
     for (const auto &hm_ent : hm_table) {
         const Pair &hm_pair = hm_ent.first;
-
-        if (hm_pair.second.var == -1) {
-            continue;
-        }
-
-        if (contradict_effect_of(op, hm_pair.first) || contradict_effect_of(op, hm_pair.second)) {
-            continue;
-        }
 
         FactPair fact = FactPair(-1, -1);
         if (p.first == hm_pair.first) {
             fact = hm_pair.second;
         } else if (p.first == hm_pair.second) {
             fact = hm_pair.first;
+        } else {
+        	continue;
         }
 
-        if (fact.var == -1) {
+        if (contradict_effect_of(op, hm_pair.first) || contradict_effect_of(op, hm_pair.second)) {
+            continue;
+        }
+        if (hm_pair.second.var == -1) {
             continue;
         }
 
-        Tuple pre = get_operator_pre(op);
-        auto it = std::lower_bound(pre.begin(), pre.end(), fact);
-        if (it == pre.end() || *it != fact) {
-            pre.insert(it, fact);
-        }
-
-        std::unordered_set<int> vars;
-        bool is_valid = true;
-        for (const FactPair &f : pre) {
-            if (!vars.insert(f.var).second) {
-                is_valid = false;
-                break;
-            }
-        }
-
-        // Update the heuristic table if valid
-        if (is_valid) {
-            int c2 = eval(pre);
-            if (c2 != std::numeric_limits<int>::max()) {
-                update_hm_entry(hm_pair, c2 + op.get_cost());
-            }
+        int c2 = hm_table_evaluation(pre, fact, eval);
+        if (c2 != numeric_limits<int>::max()) {
+            update_hm_entry(hm_pair, c2 + op.get_cost());
         }
     }
 }
-
-
 
 /*
  * Evaluates tuple by computing the maximum heuristic value among all its partial tuples.
@@ -188,6 +165,27 @@ int HTwoHeuristic::eval(const Tuple &t) const {
         	max = h;
         }
 
+    }
+    return max;
+}
+
+// Evaluates (t + fact). t-evaluation already given with eval.
+int HTwoHeuristic::hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const {
+    int max = eval;
+    for (FactPair fact0 : t) {
+      	if (fact0.var == fact.var) {
+        	return numeric_limits<int>::max();
+        }
+      	int h = 0;
+        pair key = (fact0.var < fact.var) ? pair(fact0, fact) : pair(fact, fact0);
+        h = hm_table.at(key);
+
+        if (h > max) {
+        	if (h == numeric_limits<int>::max()) {
+                  return numeric_limits<int>::max();
+            }
+        	max = h;
+        }
     }
     return max;
 }
