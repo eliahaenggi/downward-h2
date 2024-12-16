@@ -51,10 +51,11 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     Tuple state_facts = task_properties::get_fact_pairs(state);
 
     init_hm_table(state_facts);
+    init_partial_effects();
     update_hm_table();
     int h = eval(goals);
 
-    if (h == numeric_limits<int>::max()) {
+    if (h == INT_MAX) {
         return DEAD_END;
     }
     return h;
@@ -70,17 +71,27 @@ void HTwoHeuristic::init_hm_table(const Tuple &state_facts) {
       	int domain1_size = task_proxy.get_variables()[i].get_domain_size();
     	for (int j = 0; j < domain1_size; ++j) {
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
-            hm_table[single_pair] = check_tuple_in_tuple(single_pair, state_facts) ? 0 : numeric_limits<int>::max();
+            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts) ? 0 : INT_MAX;
             for (int k = i + 1; k < num_variables; ++k) {
             	int domain2_size = task_proxy.get_variables()[k].get_domain_size();
             	for (int l = 0; l < domain2_size; ++l) {
                   Pair pair(FactPair(i, j), FactPair(k, l));
-                  hm_table[pair] = check_tuple_in_tuple(single_pair, state_facts) ? 0 : numeric_limits<int>::max();
+                  hm_table[pair] = check_in_initial_state(pair, state_facts) ? 0 : INT_MAX;
             	}
             }
     	}
     }
 }
+
+void HTwoHeuristic::init_partial_effects() {
+	for (OperatorProxy op : task_proxy.get_operators()) {
+		Tuple eff = get_operator_eff(op);
+		vector<Pair> partial_effs;
+		generate_all_partial_tuples(eff, partial_effs);
+		partial_effect_cache[op.get_id()] = partial_effs;
+    }
+}
+
 
 /*
  * Iteratively updates the h^m table until no further improvements are made.
@@ -95,14 +106,11 @@ void HTwoHeuristic::update_hm_table() {
 
         for (OperatorProxy op : task_proxy.get_operators()) {
             Tuple pre = get_operator_pre(op);
-
             int c1 = eval(pre);
-            if (c1 == numeric_limits<int>::max()) {
+            if (c1 == INT_MAX) {
             	continue;
             }
-            Tuple eff = get_operator_eff(op);
-            vector<Pair> partial_effs;
-            generate_all_partial_tuples(eff, partial_effs);
+            vector<Pair> partial_effs = partial_effect_cache[op.get_id()];
             for (Pair &partial_eff : partial_effs) {
                 update_hm_entry(partial_eff, c1 + op.get_cost());
 
@@ -142,7 +150,7 @@ void HTwoHeuristic::extend_tuple(const Pair &p, const OperatorProxy &op, int eva
         }
 
         int c2 = hm_table_evaluation(pre, fact, eval);
-        if (c2 != numeric_limits<int>::max()) {
+        if (c2 != INT_MAX) {
             update_hm_entry(hm_pair, c2 + op.get_cost());
         }
     }
@@ -159,8 +167,8 @@ int HTwoHeuristic::eval(const Tuple &t) const {
         int h = hm_table.at(pair);
 
         if (h > max) {
-        	if (h == numeric_limits<int>::max()) {
-                  return numeric_limits<int>::max();
+        	if (h == INT_MAX) {
+                  return INT_MAX;
             }
         	max = h;
         }
@@ -171,18 +179,19 @@ int HTwoHeuristic::eval(const Tuple &t) const {
 
 // Evaluates (t + fact). t-evaluation already given with eval.
 int HTwoHeuristic::hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const {
-    int max = eval;
+    int fact_entry = hm_table.at(pair(fact, FactPair(-1, -1)));
+    int max = eval > fact_entry ? eval : fact_entry;
     for (FactPair fact0 : t) {
       	if (fact0.var == fact.var) {
-        	return numeric_limits<int>::max();
+        	continue;
         }
       	int h = 0;
         pair key = (fact0.var < fact.var) ? pair(fact0, fact) : pair(fact, fact0);
         h = hm_table.at(key);
 
         if (h > max) {
-        	if (h == numeric_limits<int>::max()) {
-                  return numeric_limits<int>::max();
+        	if (h == INT_MAX) {
+                  return INT_MAX;
             }
         	max = h;
         }
@@ -202,14 +211,14 @@ int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     return val;
 }
 
-bool HTwoHeuristic::check_tuple_in_tuple(
-    const Pair &pair, const Tuple &big_tuple) const {
+bool HTwoHeuristic::check_in_initial_state(
+    const Pair &hm_entry, const Tuple &state_facts) const {
     bool found_first = false;
-    bool found_second = pair.second.var == -1;
-    for (auto &fact : big_tuple) {
-        if (!found_first && fact == pair.first) {
+    bool found_second = hm_entry.second.var == -1;
+    for (auto &fact : state_facts) {
+        if (!found_first && fact == hm_entry.first) {
             found_first = true;
-        } else if (!found_second && fact == pair.second) {
+        } else if (!found_second && fact == hm_entry.second) {
             found_second = true;
         }
         if (found_first && found_second) {

@@ -43,18 +43,20 @@ struct PairHash {
     // h^m table
     std::unordered_map<Pair, int, PairHash> hm_table;
     mutable std::unordered_map<int, Tuple> precondition_cache;
+    mutable std::unordered_map<int, std::vector<Pair>> partial_effect_cache;
 
     bool was_updated;
 
     // auxiliary methods
     void init_hm_table(const Tuple &state_facts);
+    void init_partial_effects();
     void update_hm_table();
     int eval(const Tuple &t) const;
     int hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const;
     int update_hm_entry(const Pair &p, int val);
     void extend_tuple(const Pair &p, const OperatorProxy &op, int eval);
 
-    bool check_tuple_in_tuple(const Pair &tuple, const Tuple &big_tuple) const;
+    bool check_in_initial_state(const Pair &hm_entry, const Tuple &state_facts) const;
 
     int get_operator_pre_value(const OperatorProxy &op, int var) const;
     Tuple get_operator_pre(const OperatorProxy &op) const;
