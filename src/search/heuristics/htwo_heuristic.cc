@@ -53,9 +53,7 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     init_hm_table(state_facts);
     init_partial_effects();
     update_hm_table();
-    print_table();
     int h = eval(goals);
-	log << goals << endl;
     if (h == INT_MAX) {
         return DEAD_END;
     }
