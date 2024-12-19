@@ -53,8 +53,9 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     init_hm_table(state_facts);
     init_partial_effects();
     update_hm_table();
+    print_table();
     int h = eval(goals);
-
+	log << goals << endl;
     if (h == INT_MAX) {
         return DEAD_END;
     }
@@ -142,9 +143,10 @@ void HTwoHeuristic::extend_tuple(const Pair &p, const OperatorProxy &op, int eva
         	continue;
         }
 
-        if (contradict_effect_of(op, hm_pair.first) || contradict_effect_of(op, hm_pair.second)) {
+        if (contradict_effect_of(op, fact)) {
             continue;
         }
+
         if (hm_pair.second.var == -1) {
             continue;
         }
@@ -179,10 +181,12 @@ int HTwoHeuristic::eval(const Tuple &t) const {
 
 // Evaluates (t + fact). t-evaluation already given with eval.
 int HTwoHeuristic::hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const {
-    int fact_entry = hm_table.at(pair(fact, FactPair(-1, -1)));
-    int max = eval > fact_entry ? eval : fact_entry;
+    int max = eval;
     for (FactPair fact0 : t) {
       	if (fact0.var == fact.var) {
+          	if (fact0.value != fact.value) {
+                  return INT_MAX;
+          	}
         	continue;
         }
       	int h = 0;
@@ -284,6 +288,9 @@ void HTwoHeuristic::generate_all_partial_tuples(
 void HTwoHeuristic::print_table() const {
     stringstream ss;
     for (auto entry : hm_table) {
+      	if (entry.second == INT_MAX) {
+          continue;
+      	}
         Pair pair = entry.first;
         ss << "[" << pair.first.var << " = " << pair.first.value << ", " << pair.second.var << " = " << pair.second.value << "] = " << entry.second << endl;
     }
