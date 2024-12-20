@@ -183,7 +183,8 @@ int HTwoHeuristic::eval(const Tuple &t) const {
 
 // Evaluates (t + fact). t-evaluation already given with eval.
 int HTwoHeuristic::hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const {
-    int max = eval;
+    int fact_eval = hm_table.at(pair(fact, FactPair(-1, -1)));
+    int max = eval > fact_eval ? eval : fact_eval;
     for (FactPair fact0 : t) {
       	if (fact0.var == fact.var) {
           	if (fact0.value != fact.value) {
