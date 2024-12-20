@@ -30,7 +30,7 @@ CONFIGS = [
 
 SUITE = common_setup.DEFAULT_OPTIMAL_SUITE
 ENVIRONMENT = BaselSlurmEnvironment(
-    partition="infai_3",
+    partition="infai_2",
     email="elia.haenggi@stud.unibas.ch",
     memory_per_cpu="3947M",
     export=["PATH"],
@@ -72,11 +72,8 @@ exp.add_step('start', exp.start_runs)
 exp.add_step('parse', exp.parse)
 exp.add_fetcher(name='fetch')
 
-#exp.add_absolute_report_step()
-exp.add_comparison_table_step()
-exp.add_scatter_plot_step(relative=True, attributes=["total_time", "memory"])
-
-exp.add_archive_step(ARCHIVE_PATH)
-exp.add_archive_eval_dir_step(ARCHIVE_PATH)
+exp.add_absolute_report_step()
+#exp.add_comparison_table_step()
+#exp.add_scatter_plot_step(relative=True, attributes=["total_time", "memory"])
 
 exp.run_steps()
