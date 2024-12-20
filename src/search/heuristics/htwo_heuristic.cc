@@ -6,7 +6,7 @@
 #include "../utils/logging.h"
 
 #include <cassert>
-#include <limits>
+#include <climits>
 #include <set>
 
 using namespace std;
@@ -27,7 +27,7 @@ HTwoHeuristic::HTwoHeuristic(
     if (log.is_at_least_normal()) {
         log << "Using h^" << m << "." << endl;
         log << "The implementation of the h^m heuristic is preliminary." << endl
-            << "It is SLOOOOOOOOOOOW." << endl
+            << "It is rather slow." << endl
             << "Please do not use this for comparison!" << endl;
     }
 }
@@ -81,7 +81,9 @@ void HTwoHeuristic::init_hm_table(const Tuple &state_facts) {
     	}
     }
 }
-
+/**
+* Generates partial effects (size <= 2) of all operators and saves them sorted in a map.
+*/
 void HTwoHeuristic::init_partial_effects() {
 	for (OperatorProxy op : task_proxy.get_operators()) {
 		Tuple eff = get_operator_eff(op);
@@ -94,16 +96,14 @@ void HTwoHeuristic::init_partial_effects() {
 
 /*
  * Iteratively updates the h^m table until no further improvements are made.
- * For each operator:
- * - Computes the h value of preconditions.
- * - If preconditions are reachable generates all partial effect tuples for table update.
- * - Extends partial tuples with size < m to explore potential improvements.
  */
 void HTwoHeuristic::update_hm_table() {
     do {
+        //print_table();
         was_updated = false;
-
+        //log << endl << "New Iteration looü" << endl;
         for (OperatorProxy op : task_proxy.get_operators()) {
+            //log << "Operator " << op.get_id() << "with pre: (" << get_operator_pre(op) << "),  eff: (" << get_operator_eff(op) << ")" << endl;
             Tuple pre = get_operator_pre(op);
             int c1 = eval(pre);
             if (c1 == INT_MAX) {
@@ -111,9 +111,13 @@ void HTwoHeuristic::update_hm_table() {
             }
             vector<Pair> partial_effs = partial_effect_cache[op.get_id()];
             for (Pair &partial_eff : partial_effs) {
+                //if (c1 + op.get_cost() < hm_table[partial_eff]) {
+                    //log << "Eff Update: ([" << partial_eff.first.var << "=" << partial_eff.first.value << "," << partial_eff.second.var << "=" << partial_eff.second.value << "]) = " << c1 << " + " << op.get_cost() << endl;
+                //}
                 update_hm_entry(partial_eff, c1 + op.get_cost());
 
                 if (partial_eff.second.var == -1) {
+                    //log << "Extend Tuple with [" << partial_eff.first.var << "=" << partial_eff.first.value << "]" << endl;
                     extend_tuple(partial_eff, op, c1);
                 }
             }
@@ -123,9 +127,7 @@ void HTwoHeuristic::update_hm_table() {
 
 
 /*
- * Extends given tuple by adding additional facts.
- * Checks for contradictions between operator effects and tuple.
- * If no contradiction exists, updates h^m table if improvements are found.
+ * Extends given partial effect by adding additional fact.
  */
 void HTwoHeuristic::extend_tuple(const Pair &p, const OperatorProxy &op, int eval) {
 	Tuple pre = get_operator_pre(op);
@@ -151,6 +153,9 @@ void HTwoHeuristic::extend_tuple(const Pair &p, const OperatorProxy &op, int eva
 
         int c2 = hm_table_evaluation(pre, fact, eval);
         if (c2 != INT_MAX) {
+            //if (c2 + op.get_cost() < hm_table[hm_pair]) {
+                //log << "Ext Update: ([" << hm_pair.first.var << "=" << hm_pair.first.value << "," << hm_pair.second.var << "=" << hm_pair.second.value << "]) = " << c2 << " + " << op.get_cost() << endl;
+            //}
             update_hm_entry(hm_pair, c2 + op.get_cost());
         }
     }
@@ -172,7 +177,6 @@ int HTwoHeuristic::eval(const Tuple &t) const {
             }
         	max = h;
         }
-
     }
     return max;
 }
@@ -252,6 +256,7 @@ HTwoHeuristic::Tuple HTwoHeuristic::get_operator_eff(const OperatorProxy &op) co
     for (EffectProxy eff : op.get_effects()) {
         effects.push_back(eff.get_fact().get_pair());
     }
+    sort(effects.begin(), effects.end());
     return effects;
 }
 
