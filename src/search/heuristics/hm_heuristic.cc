@@ -87,26 +87,15 @@ void HMHeuristic::init_hm_table(const Tuple &t) {
  */
 void HMHeuristic::update_hm_table() { // O(|O|mV^(4m) log V)
     do {  // O(|O|mV^4m log V) if num iterations = O(V^m)
-        //dump_table();
         was_updated = false;
-        //log << endl << "New Loop" << endl;
         for (OperatorProxy op : task_proxy.get_operators()) { // O(|O|mV^3m log V)
             Tuple pre = get_operator_pre(op);
-            //log << "Operator " << op.get_id() << " pre: " << get_operator_pre(op) << " eff: " << get_operator_eff(op) << endl;
-
             int c1 = eval(pre);
             if (c1 != numeric_limits<int>::max()) {
                 Tuple eff = get_operator_eff(op);
                 vector<Tuple> partial_effs;
                 generate_all_partial_tuples(eff, partial_effs); // O(V^m) if |eff| = O(V)
                 for (Tuple &partial_eff : partial_effs) { // O(mV^3m log V)
-                    //if (c1 + op.get_cost() < hm_table[partial_eff]) {
-                        //if (partial_eff.size() == 1) {
-                           //log << "Eff Update: ([" << partial_eff[0].var << "=" << partial_eff[0].value << "]) = " << c1 << " + " << op.get_cost() << endl;
-                        //} else {
-                            //log << "Eff Update: ([" << partial_eff[0].var << "=" << partial_eff[0].value << "," << partial_eff[1].var << "=" << partial_eff[1].value << "]) = " << c1 << " + " << op.get_cost() << endl;
-                        //}
-                    //}
                     update_hm_entry(partial_eff, c1 + op.get_cost());
 
                     int eff_size = partial_eff.size();
@@ -169,13 +158,6 @@ void HMHeuristic::extend_tuple(const Tuple &t, const OperatorProxy &op) { // O(m
             if (is_valid) {
                 int c2 = eval(pre); // O(mV^m log V) if |pre| = O(V)
                 if (c2 != numeric_limits<int>::max()) {
-                    //if (c2 + op.get_cost() < hm_table[tuple]) {
-                        //if (tuple.size() == 1) {
-                            //log << "Ext Update: ([" << tuple[0].var << "=" << tuple[0].value << "]) = " << c2 << " + " << op.get_cost() << endl;
-                        //} else {
-                            //log << "Ext Update: ([" << tuple[0].var << "=" << tuple[0].value << "," << tuple[1].var << "=" << tuple[1].value << "]) = " << c2 << " + " << op.get_cost() << endl;
-                        //}
-                    //}
                     update_hm_entry(tuple, c2 + op.get_cost()); // O(m log V)
                 }
             }

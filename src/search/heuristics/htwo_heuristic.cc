@@ -49,9 +49,8 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
         return 0;
     }
     Tuple state_facts = task_properties::get_fact_pairs(state);
-
     init_hm_table(state_facts);
-    init_partial_effects();
+    init_operator_caches();
     update_hm_table();
     int h = eval(goals);
     if (h == INT_MAX) {
@@ -64,31 +63,49 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
  * Initializes h^m table.
  * If tuple is contained in input tuple assigns 0, and infinity otherwise.
  */
-void HTwoHeuristic::init_hm_table(const Tuple &state_facts) {
-	int num_variables = task_proxy.get_variables().size();
+void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
+    unordered_set<FactPair, FactPairHash> state_facts_set(state_facts.begin(), state_facts.end());
+    state_facts_set.insert(FactPair(-1, -1));
+
+    int num_variables = task_proxy.get_variables().size();
     for (int i = 0; i < num_variables; ++i) {
-      	int domain1_size = task_proxy.get_variables()[i].get_domain_size();
-    	for (int j = 0; j < domain1_size; ++j) {
+        int domain1_size = task_proxy.get_variables()[i].get_domain_size();
+        for (int j = 0; j < domain1_size; ++j) {
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
-            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts) ? 0 : INT_MAX;
+            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);
             for (int k = i + 1; k < num_variables; ++k) {
-            	int domain2_size = task_proxy.get_variables()[k].get_domain_size();
-            	for (int l = 0; l < domain2_size; ++l) {
-                  Pair pair(FactPair(i, j), FactPair(k, l));
-                  hm_table[pair] = check_in_initial_state(pair, state_facts) ? 0 : INT_MAX;
-            	}
+                int domain2_size = task_proxy.get_variables()[k].get_domain_size();
+                for (int l = 0; l < domain2_size; ++l) {
+                    Pair pair(FactPair(i, j), FactPair(k, l));
+                    hm_table[pair] = check_in_initial_state(pair, state_facts_set);
+                }
             }
-    	}
+        }
     }
 }
+
+int HTwoHeuristic::check_in_initial_state(
+    const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const {
+    bool found_first = state_facts_set.find(hm_entry.first) != state_facts_set.end();
+    bool found_second = (state_facts_set.find(hm_entry.second) != state_facts_set.end());
+    return (found_first && found_second) ? 0 : INT_MAX;
+}
+
 /**
 * Generates partial effects (size <= 2) of all operators and saves them sorted in a map.
 */
-void HTwoHeuristic::init_partial_effects() {
+void HTwoHeuristic::init_operator_caches() {
 	for (OperatorProxy op : task_proxy.get_operators()) {
-		Tuple eff = get_operator_eff(op);
+        Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
+    	sort(preconditions.begin(), preconditions.end());
+    	precondition_cache[op.get_id()] = preconditions;
+    	Tuple effects;
+    	for (EffectProxy eff : op.get_effects()) {
+        	effects.push_back(eff.get_fact().get_pair());
+    	}
+    	sort(effects.begin(), effects.end());
 		vector<Pair> partial_effs;
-		generate_all_partial_tuples(eff, partial_effs);
+		generate_all_partial_tuples(effects, partial_effs);
 		partial_effect_cache[op.get_id()] = partial_effs;
     }
 }
@@ -99,28 +116,20 @@ void HTwoHeuristic::init_partial_effects() {
  */
 void HTwoHeuristic::update_hm_table() {
     do {
-        //print_table();
         was_updated = false;
-        //log << endl << "New Iteration looü" << endl;
         for (OperatorProxy op : task_proxy.get_operators()) {
-            //log << "Operator " << op.get_id() << "with pre: (" << get_operator_pre(op) << "),  eff: (" << get_operator_eff(op) << ")" << endl;
-            Tuple pre = get_operator_pre(op);
-            int c1 = eval(pre);
+            int c1 = eval(precondition_cache[op.get_id()]);
             if (c1 == INT_MAX) {
             	continue;
             }
-            vector<Pair> partial_effs = partial_effect_cache[op.get_id()];
-            for (Pair &partial_eff : partial_effs) {
-                //if (c1 + op.get_cost() < hm_table[partial_eff]) {
-                    //log << "Eff Update: ([" << partial_eff.first.var << "=" << partial_eff.first.value << "," << partial_eff.second.var << "=" << partial_eff.second.value << "]) = " << c1 << " + " << op.get_cost() << endl;
-                //}
+            for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
                 update_hm_entry(partial_eff, c1 + op.get_cost());
 
                 if (partial_eff.second.var == -1) {
-                    //log << "Extend Tuple with [" << partial_eff.first.var << "=" << partial_eff.first.value << "]" << endl;
-                    extend_tuple(partial_eff, op, c1);
+                    extend_tuple(partial_eff.first, op, c1);
                 }
             }
+
         }
     } while (was_updated);
 }
@@ -129,34 +138,20 @@ void HTwoHeuristic::update_hm_table() {
 /*
  * Extends given partial effect by adding additional fact.
  */
-void HTwoHeuristic::extend_tuple(const Pair &p, const OperatorProxy &op, int eval) {
-	Tuple pre = get_operator_pre(op);
-    for (const auto &hm_ent : hm_table) {
-        const Pair &hm_pair = hm_ent.first;
-
-        FactPair fact = FactPair(-1, -1);
-        if (p.first == hm_pair.first) {
-            fact = hm_pair.second;
-        } else if (p.first == hm_pair.second) {
-            fact = hm_pair.first;
-        } else {
+void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int eval) {
+	Tuple pre = precondition_cache[op.get_id()];
+    int num_variables = task_proxy.get_variables().size();
+    for (int i = 0; i < num_variables; ++i) {
+        if (f.var == i || contradict_effect_of(op, i)) {
         	continue;
         }
-
-        if (contradict_effect_of(op, fact)) {
-            continue;
-        }
-
-        if (hm_pair.second.var == -1) {
-            continue;
-        }
-
-        int c2 = hm_table_evaluation(pre, fact, eval);
-        if (c2 != INT_MAX) {
-            //if (c2 + op.get_cost() < hm_table[hm_pair]) {
-                //log << "Ext Update: ([" << hm_pair.first.var << "=" << hm_pair.first.value << "," << hm_pair.second.var << "=" << hm_pair.second.value << "]) = " << c2 << " + " << op.get_cost() << endl;
-            //}
-            update_hm_entry(hm_pair, c2 + op.get_cost());
+    	for (int j = 0; j < task_proxy.get_variables()[i].get_domain_size(); ++j) {
+        	FactPair fact = FactPair(i, j);
+        	int c2 = hm_table_evaluation(pre, fact, eval);
+        	if (c2 != INT_MAX) {
+            	Pair hm_pair = f.var > fact.var ? Pair(fact, f) : Pair(f, fact);
+            	update_hm_entry(hm_pair, c2 + op.get_cost());
+        	}
         }
     }
 }
@@ -183,22 +178,21 @@ int HTwoHeuristic::eval(const Tuple &t) const {
 
 // Evaluates (t + fact). t-evaluation already given with eval.
 int HTwoHeuristic::hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const {
-    int fact_eval = hm_table.at(pair(fact, FactPair(-1, -1)));
+    int fact_eval = hm_table.at(Pair(fact, FactPair(-1, -1)));
     int max = eval > fact_eval ? eval : fact_eval;
     for (FactPair fact0 : t) {
       	if (fact0.var == fact.var) {
           	if (fact0.value != fact.value) {
                   return INT_MAX;
           	}
-        	continue;
+        	return eval;
         }
-      	int h = 0;
-        pair key = (fact0.var < fact.var) ? pair(fact0, fact) : pair(fact, fact0);
-        h = hm_table.at(key);
+        Pair key = (fact0.var < fact.var) ? Pair(fact0, fact) : Pair(fact, fact0);
+        int h = hm_table.at(key);
 
         if (h > max) {
         	if (h == INT_MAX) {
-                  return INT_MAX;
+                return INT_MAX;
             }
         	max = h;
         }
@@ -218,55 +212,10 @@ int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     return val;
 }
 
-bool HTwoHeuristic::check_in_initial_state(
-    const Pair &hm_entry, const Tuple &state_facts) const {
-    bool found_first = false;
-    bool found_second = hm_entry.second.var == -1;
-    for (auto &fact : state_facts) {
-        if (!found_first && fact == hm_entry.first) {
-            found_first = true;
-        } else if (!found_second && fact == hm_entry.second) {
-            found_second = true;
-        }
-        if (found_first && found_second) {
-            return true;
-        }
-    }
-    return false;
-}
-
-
-HTwoHeuristic::Tuple HTwoHeuristic::get_operator_pre(const OperatorProxy &op) const {
-    int op_id = op.get_id();
-
-    auto it = precondition_cache.find(op_id);
-    if (it != precondition_cache.end()) {
-        return it->second;
-    }
-
-    Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
-    std::sort(preconditions.begin(), preconditions.end());
-    precondition_cache[op_id] = preconditions;
-
-    return preconditions;
-}
-
-
-HTwoHeuristic::Tuple HTwoHeuristic::get_operator_eff(const OperatorProxy &op) const {
-    Tuple effects;
-    for (EffectProxy eff : op.get_effects()) {
-        effects.push_back(eff.get_fact().get_pair());
-    }
-    sort(effects.begin(), effects.end());
-    return effects;
-}
-
-
 bool HTwoHeuristic::contradict_effect_of(
-    const OperatorProxy &op, FactPair fact) const {
+    const OperatorProxy &op, int fact_var) const {
     for (EffectProxy eff : op.get_effects()) {
-        FactProxy eff_fact = eff.get_fact();
-        if (eff_fact.get_variable().get_id() == fact.var && eff_fact.get_value() != fact.value) {
+        if (eff.get_fact().get_variable().get_id() == fact_var) {
             return true;
         }
     }
@@ -293,7 +242,7 @@ void HTwoHeuristic::print_table() const {
     stringstream ss;
     for (auto entry : hm_table) {
       	if (entry.second == INT_MAX) {
-          continue;
+        	continue;
       	}
         Pair pair = entry.first;
         ss << "[" << pair.first.var << " = " << pair.first.value << ", " << pair.second.var << " = " << pair.second.value << "] = " << entry.second << endl;

@@ -23,7 +23,6 @@ namespace htwo_heuristic {
 
 class HTwoHeuristic : public Heuristic {
     using Tuple = std::vector<FactPair>;
-    using Pair = std::pair<FactPair, FactPair>;
 
     // parameters
     const int m;
@@ -32,14 +31,38 @@ class HTwoHeuristic : public Heuristic {
     const Tuple goals;
 
 
-struct PairHash {
-    std::size_t operator()(const Pair &pair) const {
-        const int MOD = 1009; // Prime greater than max domain size
-        std::size_t h1 = pair.first.var * MOD + pair.first.value;
-        std::size_t h2 = pair.second.var * MOD + pair.second.value;
-        return h1 * MOD + h2;
-    }
-};
+    struct Pair {
+        FactPair first;
+        FactPair second;
+        std::size_t hash;
+
+        Pair(const FactPair &f, const FactPair &s) : first(f), second(s), hash(compute_hash(first, second)) {}
+
+        bool operator==(const Pair &other) const {
+            return first == other.first && second == other.second;
+        }
+
+    private:
+        static std::size_t compute_hash(const FactPair &f1, const FactPair &f2) {
+            const int MOD = 100003; // Prime
+            std::size_t h1 = f1.var * MOD + f1.value;
+            std::size_t h2 = f2.var * MOD + f2.value;
+            return h1 * MOD + h2;
+        }
+    };
+
+    struct PairHash {
+        std::size_t operator()(const Pair &pair) const {
+            return pair.hash;
+        }
+    };
+
+    struct FactPairHash {
+        size_t operator()(const FactPair &fact) const {
+            return fact.var * 100003 + fact.value;
+        }
+    };
+
     // h^m table
     std::unordered_map<Pair, int, PairHash> hm_table;
     mutable std::unordered_map<int, Tuple> precondition_cache;
@@ -49,19 +72,18 @@ struct PairHash {
 
     // auxiliary methods
     void init_hm_table(const Tuple &state_facts);
-    void init_partial_effects();
+    void init_operator_caches();
     void update_hm_table();
     int eval(const Tuple &t) const;
     int hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const;
     int update_hm_entry(const Pair &p, int val);
-    void extend_tuple(const Pair &p, const OperatorProxy &op, int eval);
+    void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
 
-    bool check_in_initial_state(const Pair &hm_entry, const Tuple &state_facts) const;
+    int check_in_initial_state(
+        const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
 
     int get_operator_pre_value(const OperatorProxy &op, int var) const;
-    Tuple get_operator_pre(const OperatorProxy &op) const;
-    Tuple get_operator_eff(const OperatorProxy &op) const;
-    bool contradict_effect_of(const OperatorProxy &op, FactPair fact) const;
+    bool contradict_effect_of(const OperatorProxy &op, int fact_var) const;
 
 	void generate_all_partial_tuples(const Tuple &base_tuple,
                                      std::vector<Pair> &res) const;
