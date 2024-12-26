@@ -15,12 +15,11 @@ BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
 REVISION_CACHE = (
     os.environ.get("DOWNWARD_REVISION_CACHE") or project.DIR / "data" / "revision-cache"
 )
-SUITE = ["depot:p02.pddl", "driverlog:p02.pddl", "gripper:prob01.pddl", "gripper:prob02.pddl", "openstacks:p02.pddl", "philosophers:p02-phil3.pddl", "rovers:p02.pddl", "satellite:p01-pfile1.pddl", "trucks:p01.pddl", "logistics00:probLOGISTICS-4-0.pddl",  "logistics00:probLOGISTICS-5-0.pddl", "movie:prob01.pddl", "satellite:p01-pfile1.pddl"]
+SUITE = ["depot:p02.pddl", "driverlog:p02.pddl", "gripper:prob01.pddl", "gripper:prob02.pddl", "satellite:p01-pfile1.pddl", "trucks:p01.pddl", "logistics00:probLOGISTICS-4-0.pddl",  "logistics00:probLOGISTICS-5-0.pddl", "movie:prob01.pddl", "satellite:p01-pfile1.pddl"]
 
 ENV = project.LocalEnvironment(processes=2)
 
 CONFIGS = [
-    ("hm_astar", ["--search", "astar(hm())"]),
     ("h2_astar", ["--search", "astar(h2())"])
 ]
 BUILD_OPTIONS = []
@@ -33,7 +32,8 @@ DRIVER_OPTIONS = [
 ]
 # Pairs of revision identifier and optional revision nick.
 REV_NICKS = [
-    ("main", ""),
+    ("cd16ed760d6954d0c2e5cf846afb67baadb62e26", "old"),
+    ("f98d6ccfeab01e9087d7e9f9b0a7bb3ac0305339", "new")
 ]
 ATTRIBUTES = [
     "error",

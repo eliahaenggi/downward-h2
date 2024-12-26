@@ -71,8 +71,16 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
     for (int i = 0; i < num_variables; ++i) {
         int domain1_size = task_proxy.get_variables()[i].get_domain_size();
         for (int j = 0; j < domain1_size; ++j) {
+            vector<OperatorProxy> op_list;
+            for (OperatorProxy op : task_proxy.get_operators()) {
+       			Tuple pre = task_properties::get_fact_pairs(op.get_preconditions());
+                if (find(pre.begin(), pre.end(), FactPair(i, j)) != pre.end()) {
+                	op_list.push_back(op);
+                }
+            }
+            op_dictionary[FactPair(i, j)] = op_list;
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
-            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);
+            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);;
             for (int k = i + 1; k < num_variables; ++k) {
                 int domain2_size = task_proxy.get_variables()[k].get_domain_size();
                 for (int l = 0; l < domain2_size; ++l) {
@@ -96,9 +104,24 @@ int HTwoHeuristic::check_in_initial_state(
 */
 void HTwoHeuristic::init_operator_caches() {
 	for (OperatorProxy op : task_proxy.get_operators()) {
+        // Setup precondition cache
         Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
     	precondition_cache[op.get_id()] = preconditions;
+
+        // Setup operator queue
+        bool is_applicable = true;
+        for (auto pair : preconditions) {
+            if (hm_table[Pair(pair, FactPair(-1, -1))] != 0) {
+                is_applicable = false;
+            }
+        }
+        if (is_applicable) {
+            op_queue.push_back(op);
+            is_op_in_queue.insert(op.get_id());
+        }
+
+        // Setup partial effect cache
     	Tuple effects;
     	for (EffectProxy eff : op.get_effects()) {
         	effects.push_back(eff.get_fact().get_pair());
@@ -115,23 +138,22 @@ void HTwoHeuristic::init_operator_caches() {
  * Iteratively updates the h^m table until no further improvements are made.
  */
 void HTwoHeuristic::update_hm_table() {
-    do {
-        was_updated = false;
-        for (OperatorProxy op : task_proxy.get_operators()) {
-            int c1 = eval(precondition_cache[op.get_id()]);
-            if (c1 == INT_MAX) {
-            	continue;
-            }
-            for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
-                update_hm_entry(partial_eff, c1 + op.get_cost());
+     while (!op_queue.empty()) {
+         OperatorProxy op = op_queue.front();
+         op_queue.pop_front();
+         is_op_in_queue.erase(op.get_id());
+         int c1 = eval(precondition_cache[op.get_id()]);
+         if (c1 == INT_MAX) {
+             continue;
+         }
+         for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
+             update_hm_entry(partial_eff, c1 + op.get_cost());
 
-                if (partial_eff.second.var == -1) {
-                    extend_tuple(partial_eff.first, op, c1);
-                }
-            }
-
-        }
-    } while (was_updated);
+             if (partial_eff.second.var == -1) {
+                 extend_tuple(partial_eff.first, op, c1);
+             }
+         }
+     }
 }
 
 
@@ -200,14 +222,27 @@ int HTwoHeuristic::hm_table_evaluation(const Tuple &t, const FactPair &fact, int
     return max;
 }
 
+void HTwoHeuristic::add_operator_to_queue(const FactPair &f) {
+	vector<OperatorProxy> ops = op_dictionary[f];
+    for (OperatorProxy op : ops) {
+        if (is_op_in_queue.find(op.get_id()) == is_op_in_queue.end()) {
+            op_queue.push_back(op);
+            is_op_in_queue.insert(op.get_id());
+        }
+    }
+}
+
 /*
  * Updates the heuristic value of a tuple in the h^m table.
  * Sets "was_updated" flag to true to indicate a change occurred.
  */
 int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     if (hm_table[p] > val) {
+        add_operator_to_queue(p.first);
+        if (p.second.var != -1) {
+            add_operator_to_queue(p.second);
+        }
         hm_table[p] = val;
-        was_updated = true;
     }
     return val;
 }

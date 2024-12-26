@@ -8,6 +8,9 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <deque>
+
+
 
 namespace plugins {
 class Options;
@@ -68,7 +71,9 @@ class HTwoHeuristic : public Heuristic {
     mutable std::unordered_map<int, Tuple> precondition_cache;
     mutable std::unordered_map<int, std::vector<Pair>> partial_effect_cache;
 
-    bool was_updated;
+    mutable std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> op_dictionary;
+	std::deque<OperatorProxy> op_queue;
+    std::unordered_set<int> is_op_in_queue; // For checks if op in queue
 
     // auxiliary methods
     void init_hm_table(const Tuple &state_facts);
@@ -78,6 +83,8 @@ class HTwoHeuristic : public Heuristic {
     int hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const;
     int update_hm_entry(const Pair &p, int val);
     void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
+
+    void add_operator_to_queue(const FactPair &f);
 
     int check_in_initial_state(
         const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
