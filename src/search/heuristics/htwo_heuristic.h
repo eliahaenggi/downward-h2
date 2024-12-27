@@ -63,18 +63,28 @@ class HTwoHeuristic : public Heuristic {
         }
     };
 
+    struct OperatorInfo {
+
+    	Tuple preconditions;
+        std::vector<Pair> partial_effects;
+
+        OperatorInfo(const Tuple &pre, const std::vector<Pair> &par_eff) : preconditions(pre), partial_effects(par_eff) {}
+
+    };
+
     // h^m table
     std::unordered_map<Pair, int, PairHash> hm_table;
-    mutable std::unordered_map<int, Tuple> precondition_cache;
-    mutable std::unordered_map<int, std::vector<Pair>> partial_effect_cache;
+
+    std::vector<OperatorInfo> operator_info_list;
 
     bool was_updated;
 
     // auxiliary methods
     void init_hm_table(const Tuple &state_facts);
-    void init_operator_caches();
+    void init_operator_info_list();
     void update_hm_table();
     int eval(const Tuple &t) const;
+    int eval_preconditions(int &op_id) const;
     int hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const;
     int update_hm_entry(const Pair &p, int val);
     void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);

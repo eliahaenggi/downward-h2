@@ -50,7 +50,7 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     }
     Tuple state_facts = task_properties::get_fact_pairs(state);
     init_hm_table(state_facts);
-    init_operator_caches();
+    init_operator_info_list();
     update_hm_table();
     int h = eval(goals);
     if (h == INT_MAX) {
@@ -94,11 +94,10 @@ int HTwoHeuristic::check_in_initial_state(
 /**
 * Generates partial effects (size <= 2) of all operators and saves them sorted in a map.
 */
-void HTwoHeuristic::init_operator_caches() {
+void HTwoHeuristic::init_operator_info_list() {
 	for (OperatorProxy op : task_proxy.get_operators()) {
         Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
-    	precondition_cache[op.get_id()] = preconditions;
     	Tuple effects;
     	for (EffectProxy eff : op.get_effects()) {
         	effects.push_back(eff.get_fact().get_pair());
@@ -106,7 +105,7 @@ void HTwoHeuristic::init_operator_caches() {
     	sort(effects.begin(), effects.end());
 		vector<Pair> partial_effs;
 		generate_all_partial_tuples(effects, partial_effs);
-		partial_effect_cache[op.get_id()] = partial_effs;
+        operator_info_list.push_back(OperatorInfo(preconditions, partial_effs));
     }
 }
 
@@ -118,18 +117,19 @@ void HTwoHeuristic::update_hm_table() {
     do {
         was_updated = false;
         for (OperatorProxy op : task_proxy.get_operators()) {
-            int c1 = eval(precondition_cache[op.get_id()]);
+            OperatorInfo &op_info = operator_info_list[op.get_id()];
+            int c1 = eval(op_info.preconditions);
             if (c1 == INT_MAX) {
             	continue;
             }
-            for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
-                update_hm_entry(partial_eff, c1 + op.get_cost());
 
-                if (partial_eff.second.var == -1) {
+            for (Pair &partial_eff : op_info.partial_effects) {
+                update_hm_entry(partial_eff, c1 + op.get_cost());
+                if (hm_table[partial_eff] != INT_MAX && partial_eff.second.var == -1) {
+
                     extend_tuple(partial_eff.first, op, c1);
                 }
             }
-
         }
     } while (was_updated);
 }
@@ -139,7 +139,7 @@ void HTwoHeuristic::update_hm_table() {
  * Extends given partial effect by adding additional fact.
  */
 void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int eval) {
-	Tuple pre = precondition_cache[op.get_id()];
+	Tuple pre = operator_info_list[op.get_id()].preconditions;
     int num_variables = task_proxy.get_variables().size();
     for (int i = 0; i < num_variables; ++i) {
         if (f.var == i || contradict_effect_of(op, i)) {
@@ -167,7 +167,7 @@ int HTwoHeuristic::eval(const Tuple &t) const {
         int h = hm_table.at(pair);
 
         if (h > max) {
-        	if (h == INT_MAX) {
+        	if (h == numeric_limits<int>::max()) {
                   return INT_MAX;
             }
         	max = h;
@@ -230,10 +230,10 @@ void HTwoHeuristic::generate_all_partial_tuples(
     res.reserve(base_tuple.size() * (base_tuple.size() + 1) / 2);
 
     for (size_t i = 0; i < base_tuple.size(); ++i) {
-        res.emplace_back(base_tuple[i], FactPair(-1, -1));
+        res.emplace_back(Pair(base_tuple[i], FactPair(-1, -1)));
 
         for (size_t j = i + 1; j < base_tuple.size(); ++j) {
-            res.emplace_back(base_tuple[i], base_tuple[j]);
+            res.emplace_back(Pair(base_tuple[i], base_tuple[j]));
         }
     }
 }
