@@ -8,6 +8,8 @@
 #include <cassert>
 #include <climits>
 #include <set>
+#include <random>
+#include <queue>
 
 using namespace std;
 
@@ -49,8 +51,10 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
         return 0;
     }
     Tuple state_facts = task_properties::get_fact_pairs(state);
-    init_hm_table(state_facts);
+    vector<Pair> init_pairs;
+    initialize_pairs(state_facts, init_pairs);
     init_operator_info_list();
+    //dijkstra(init_pairs);
     update_hm_table();
     int h = eval(goals);
     if (h == INT_MAX) {
@@ -63,25 +67,42 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
  * Initializes h^m table.
  * If tuple is contained in input tuple assigns 0, and infinity otherwise.
  */
-void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
+void HTwoHeuristic::initialize_pairs(const Tuple &state_facts, vector<Pair> &init_pairs) {
     unordered_set<FactPair, FactPairHash> state_facts_set(state_facts.begin(), state_facts.end());
     state_facts_set.insert(FactPair(-1, -1));
-
+    table_order.clear();
+    hm_table.clear();
+    distances.clear();
     int num_variables = task_proxy.get_variables().size();
     for (int i = 0; i < num_variables; ++i) {
         int domain1_size = task_proxy.get_variables()[i].get_domain_size();
         for (int j = 0; j < domain1_size; ++j) {
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
-            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);
+            int init_h = check_in_initial_state(single_pair, state_facts_set);
+            if (init_h == 0) {
+                init_pairs.push_back(single_pair);
+            }
+            distances[single_pair] = init_h;
+            hm_table[single_pair] = init_h;
+            table_order.push_back(single_pair);
+            operator_list[FactPair(i, j)] = std::vector<OperatorProxy>();
             for (int k = i + 1; k < num_variables; ++k) {
                 int domain2_size = task_proxy.get_variables()[k].get_domain_size();
                 for (int l = 0; l < domain2_size; ++l) {
                     Pair pair(FactPair(i, j), FactPair(k, l));
-                    hm_table[pair] = check_in_initial_state(pair, state_facts_set);
+                     init_h = check_in_initial_state(pair, state_facts_set);
+                     if (init_h == 0) {
+                         init_pairs.push_back(pair);
+                     }
+                    hm_table[pair] = init_h;
+                    distances[pair] = init_h;
+                    table_order.push_back(pair);
                 }
             }
         }
     }
+    auto rng = std::default_random_engine {};
+    std::shuffle(std::begin(table_order), std::end(table_order), rng);
 }
 
 int HTwoHeuristic::check_in_initial_state(
@@ -103,10 +124,53 @@ void HTwoHeuristic::init_operator_info_list() {
         	effects.push_back(eff.get_fact().get_pair());
     	}
     	sort(effects.begin(), effects.end());
+
 		vector<Pair> partial_effs;
 		generate_all_partial_tuples(effects, partial_effs);
-        operator_info_list.push_back(OperatorInfo(preconditions, partial_effs));
+        operator_info_list.push_back(OperatorInfo(preconditions, partial_effs, effects));
+        for (FactPair eff : effects) {
+            operator_list[eff].push_back(op);
+        }
     }
+}
+
+void HTwoHeuristic::dijkstra(
+    const vector<Pair> &init_pairs) {
+
+    priority_queue<
+        pair<int, Pair>,
+        vector<pair<int, Pair>>,
+        PairCompare> pq;
+
+    for (const auto &node : init_pairs) {
+        pq.emplace(0, node);
+    }
+
+    while (!pq.empty()) {
+        int current_cost = pq.top().first;
+        Pair current_node = pq.top().second;
+        pq.pop();
+
+        if (distances[current_node] < current_cost) {
+            continue;
+        }
+        //TODO: Find a meaning full neighbor relation that creates an efficent table order
+        for (auto op : task_proxy.get_operators()) {
+            OperatorInfo op_info = operator_info_list[op.get_id()];
+            int new_cost = current_cost + op.get_cost();
+            if (find(op_info.preconditions.begin(), op_info.preconditions.end(), current_node.first) == op_info.preconditions.end() ||
+                find(op_info.preconditions.begin(), op_info.preconditions.end(), current_node.second) == op_info.preconditions.end()
+                ) {
+                for (auto pair : op_info.partial_effects) {
+                    if (new_cost < distances[pair]) {
+                        distances[pair] = new_cost;
+                        pq.emplace(new_cost, pair);
+                    }
+                }
+            }
+        }
+    }
+    sort(table_order.begin(), table_order.end(), CompareDistance(distances));
 }
 
 
@@ -114,24 +178,81 @@ void HTwoHeuristic::init_operator_info_list() {
  * Iteratively updates the h^m table until no further improvements are made.
  */
 void HTwoHeuristic::update_hm_table() {
+    int iterations = 0;
     do {
+        ++iterations;
         was_updated = false;
-        for (OperatorProxy op : task_proxy.get_operators()) {
-            OperatorInfo &op_info = operator_info_list[op.get_id()];
-            int c1 = eval(op_info.preconditions);
-            if (c1 == INT_MAX) {
-            	continue;
+        for (Pair pair : table_order) {
+            for (OperatorProxy op : operator_list[pair.first]) {
+                OperatorInfo &op_info = operator_info_list[op.get_id()];
+                Tuple pre(op_info.preconditions);
+                auto it = lower_bound(pre.begin(), pre.end(), pair.second);
+                bool is_valid = true;
+                if ((it == pre.end() || *it != pair.second) && pair.second.var != -1) {
+                    auto inserted_it = pre.insert(it, pair.second);
+
+                    if (inserted_it != pre.begin()) {
+                        auto prev_it = std::prev(inserted_it);
+                        if (prev_it->var == inserted_it->var) {
+                            is_valid = false;
+                        }
+                    }
+                    auto next_it = std::next(inserted_it);
+                    if (next_it != pre.end()) {
+                        if (next_it->var == inserted_it->var) {
+                            is_valid = false;
+                        }
+                    }
+                }
+
+                if (is_valid) {
+                    sort(pre.begin(), pre.end());
+                    int c1 = eval(pre);
+                    if (c1 == INT_MAX) {
+                        continue;
+                    }
+                    update_hm_entry(pair, c1 + op.get_cost());
+                }
             }
+            if (pair.second.var == -1) {
+                continue;
+            }
+            for (OperatorProxy op : operator_list[pair.second]) {
+                OperatorInfo &op_info = operator_info_list[op.get_id()];
+                Tuple pre(op_info.preconditions);
+                bool is_valid = true;
 
-            for (Pair &partial_eff : op_info.partial_effects) {
-                update_hm_entry(partial_eff, c1 + op.get_cost());
-                if (hm_table[partial_eff] != INT_MAX && partial_eff.second.var == -1) {
+                auto it = lower_bound(pre.begin(), pre.end(), pair.first);
 
-                    extend_tuple(partial_eff.first, op, c1);
+                if (it == pre.end() || *it != pair.first) {
+                    auto inserted_it = pre.insert(it, pair.first);
+
+                    if (inserted_it != pre.begin()) {
+                        auto prev_it = std::prev(inserted_it);
+                        if (prev_it->var == inserted_it->var) {
+                            is_valid = false;
+                        }
+                    }
+                    auto next_it = std::next(inserted_it);
+                    if (next_it != pre.end()) {
+                        if (next_it->var == inserted_it->var) {
+                            is_valid = false;
+                        }
+                    }
+                }
+
+                if (is_valid) {
+                    sort(pre.begin(), pre.end());
+                    int c1 = eval(pre);
+                    if (c1 == INT_MAX) {
+                        continue;
+                    }
+                    update_hm_entry(pair, c1 + op.get_cost());
                 }
             }
         }
     } while (was_updated);
+    //log << iterations << " iterations" << endl;
 }
 
 

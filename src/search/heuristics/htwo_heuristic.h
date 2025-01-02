@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <random>
 
 namespace plugins {
 class Options;
@@ -57,6 +58,29 @@ class HTwoHeuristic : public Heuristic {
         }
     };
 
+    struct PairCompare {
+        bool operator()(const std::pair<int, Pair>& p1, const std::pair<int, Pair>& p2) const {
+            if (p1.first != p2.first) {
+                return p1.first < p2.first;
+            }
+            if (p1.second.first != p2.second.first) {
+                return p1.second.first < p2.second.first;
+            }
+
+            return p1.second.second < p2.second.second;
+        }
+    };
+
+    struct CompareDistance {
+        const std::unordered_map<Pair, int, PairHash>& distances;
+
+        CompareDistance(const std::unordered_map<Pair, int, PairHash>& d) : distances(d) {}
+
+        bool operator()(const Pair& a, const Pair& b) const {
+            return distances.at(a) < distances.at(b);
+        }
+    };
+
     struct FactPairHash {
         size_t operator()(const FactPair &fact) const {
             return fact.var * 100003 + fact.value;
@@ -67,21 +91,27 @@ class HTwoHeuristic : public Heuristic {
 
     	Tuple preconditions;
         std::vector<Pair> partial_effects;
+        std::vector<FactPair> effects;
 
-        OperatorInfo(const Tuple &pre, const std::vector<Pair> &par_eff) : preconditions(pre), partial_effects(par_eff) {}
+        OperatorInfo(const Tuple &pre, const std::vector<Pair> &par_eff, const std::vector<FactPair> eff) : preconditions(pre), partial_effects(par_eff), effects(eff) {}
 
     };
 
     // h^m table
     std::unordered_map<Pair, int, PairHash> hm_table;
+    std::unordered_map<Pair, int, PairHash> distances;
+    std::vector<Pair> table_order;
+    std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> operator_list;
 
     std::vector<OperatorInfo> operator_info_list;
 
     bool was_updated;
 
     // auxiliary methods
-    void init_hm_table(const Tuple &state_facts);
+    void initialize_pairs(const Tuple &state_facts, std::vector<Pair> &init_pairs);
     void init_operator_info_list();
+    void dijkstra(const std::vector<Pair> &init_pairs);
+
     void update_hm_table();
     int eval(const Tuple &t) const;
     int eval_preconditions(int &op_id) const;
