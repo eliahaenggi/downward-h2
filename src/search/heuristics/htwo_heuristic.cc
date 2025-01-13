@@ -74,7 +74,7 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
             vector<OperatorProxy> op_list;
             for (OperatorProxy op : task_proxy.get_operators()) {
        			Tuple pre = task_properties::get_fact_pairs(op.get_preconditions());
-                if (find(pre.begin(), pre.end(), FactPair(i, j)) != pre.end()) {
+                if (find(pre.begin(), pre.end(), FactPair(i, j)) != pre.end() || pre.empty()) {
                 	op_list.push_back(op);
                 }
             }
@@ -147,23 +147,11 @@ void HTwoHeuristic::update_hm_table() {
              continue;
          }
          for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
-             update_hm_entry(partial_eff, c1 + op.get_cost());
+             int val = update_hm_entry(partial_eff, c1 + op.get_cost());
 
-             if (partial_eff.second.var == -1) {
+             if (val != -1 && partial_eff.second.var == -1) {
                  extend_tuple(partial_eff.first, op, c1);
-             }
-         }
-     }
-     // Rather dirty fix. At the end just iterate over all operators one more time. Fixes problems in movie problem instance
-     for (OperatorProxy op : task_proxy.get_operators()) {
-         int c1 = eval(precondition_cache[op.get_id()]);
-         if (c1 == INT_MAX) {
-             continue;
-         }
-         for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
-             update_hm_entry(partial_eff, c1 + op.get_cost());
-
-             if (partial_eff.second.var == -1) {
+             } else if (val == -1 && partial_eff.second.var == -1) {
                  extend_tuple(partial_eff.first, op, c1);
              }
          }
@@ -257,8 +245,9 @@ int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
             add_operator_to_queue(p.second);
         }
         hm_table[p] = val;
+        return val;
     }
-    return val;
+    return -1;
 }
 
 bool HTwoHeuristic::contradict_effect_of(
