@@ -71,19 +71,22 @@ class HTwoHeuristic : public Heuristic {
         }
     };
 
-    struct CompareDistance {
-        const std::unordered_map<Pair, int, PairHash>& distances;
-
-        CompareDistance(const std::unordered_map<Pair, int, PairHash>& d) : distances(d) {}
-
-        bool operator()(const Pair& a, const Pair& b) const {
-            return distances.at(a) < distances.at(b);
-        }
-    };
 
     struct FactPairHash {
         size_t operator()(const FactPair &fact) const {
             return fact.var * 100003 + fact.value;
+        }
+    };
+
+    struct CompareDistance {
+        std::unordered_map<FactPair, int, FactPairHash> distances;
+
+        CompareDistance(const std::unordered_map<FactPair, int, FactPairHash>& d) : distances(d) {}
+
+        bool operator()(const Pair& a, const Pair& b) const {
+          	int max_a = a.second.var == -1 ? distances.at(a.first) : std::max(distances.at(a.first), distances.at(a.second));
+            int max_b = b.second.var == -1 ? distances.at(b.first) : std::max(distances.at(b.first), distances.at(b.second));
+            return max_a < max_b;
         }
     };
 
@@ -99,18 +102,19 @@ class HTwoHeuristic : public Heuristic {
 
     // h^m table
     std::unordered_map<Pair, int, PairHash> hm_table;
-    std::unordered_map<Pair, int, PairHash> distances;
+    std::unordered_map<FactPair, int, FactPairHash> distances;
     std::vector<Pair> table_order;
-    std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> operator_list;
+    std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> operator_eff_list;
+    std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> operator_pre_list;
 
     std::vector<OperatorInfo> operator_info_list;
 
     bool was_updated;
 
     // auxiliary methods
-    void initialize_pairs(const Tuple &state_facts, std::vector<Pair> &init_pairs);
+    void initialize_pairs(const Tuple &state_facts);
     void init_operator_info_list();
-    void dijkstra(const std::vector<Pair> &init_pairs);
+    void dijkstra(const Tuple &state_facts);
 
     void update_hm_table();
     int eval(const Tuple &t) const;

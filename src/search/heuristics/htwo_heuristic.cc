@@ -51,10 +51,9 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
         return 0;
     }
     Tuple state_facts = task_properties::get_fact_pairs(state);
-    vector<Pair> init_pairs;
-    initialize_pairs(state_facts, init_pairs);
+    initialize_pairs(state_facts);
     init_operator_info_list();
-    //dijkstra(init_pairs);
+    dijkstra(state_facts);
     update_hm_table();
     int h = eval(goals);
     if (h == INT_MAX) {
@@ -67,7 +66,7 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
  * Initializes h^m table.
  * If tuple is contained in input tuple assigns 0, and infinity otherwise.
  */
-void HTwoHeuristic::initialize_pairs(const Tuple &state_facts, vector<Pair> &init_pairs) {
+void HTwoHeuristic::initialize_pairs(const Tuple &state_facts) {
     unordered_set<FactPair, FactPairHash> state_facts_set(state_facts.begin(), state_facts.end());
     state_facts_set.insert(FactPair(-1, -1));
     table_order.clear();
@@ -79,30 +78,21 @@ void HTwoHeuristic::initialize_pairs(const Tuple &state_facts, vector<Pair> &ini
         for (int j = 0; j < domain1_size; ++j) {
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
             int init_h = check_in_initial_state(single_pair, state_facts_set);
-            if (init_h == 0) {
-                init_pairs.push_back(single_pair);
-            }
-            distances[single_pair] = init_h;
+            distances[FactPair(i, j)] = init_h;
             hm_table[single_pair] = init_h;
             table_order.push_back(single_pair);
-            operator_list[FactPair(i, j)] = std::vector<OperatorProxy>();
+            operator_pre_list[FactPair(i, j)] = std::vector<OperatorProxy>();
+            operator_eff_list[FactPair(i, j)] = std::vector<OperatorProxy>();
             for (int k = i + 1; k < num_variables; ++k) {
                 int domain2_size = task_proxy.get_variables()[k].get_domain_size();
                 for (int l = 0; l < domain2_size; ++l) {
                     Pair pair(FactPair(i, j), FactPair(k, l));
-                     init_h = check_in_initial_state(pair, state_facts_set);
-                     if (init_h == 0) {
-                         init_pairs.push_back(pair);
-                     }
-                    hm_table[pair] = init_h;
-                    distances[pair] = init_h;
+                    hm_table[pair] = check_in_initial_state(pair, state_facts_set);
                     table_order.push_back(pair);
                 }
             }
         }
     }
-    auto rng = std::default_random_engine {};
-    std::shuffle(std::begin(table_order), std::end(table_order), rng);
 }
 
 int HTwoHeuristic::check_in_initial_state(
@@ -119,6 +109,9 @@ void HTwoHeuristic::init_operator_info_list() {
 	for (OperatorProxy op : task_proxy.get_operators()) {
         Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
+        for (auto pre : preconditions) {
+        	operator_pre_list[pre].push_back(op);
+        }
     	Tuple effects;
     	for (EffectProxy eff : op.get_effects()) {
         	effects.push_back(eff.get_fact().get_pair());
@@ -129,48 +122,47 @@ void HTwoHeuristic::init_operator_info_list() {
 		generate_all_partial_tuples(effects, partial_effs);
         operator_info_list.push_back(OperatorInfo(preconditions, partial_effs, effects));
         for (FactPair eff : effects) {
-            operator_list[eff].push_back(op);
+            operator_eff_list[eff].push_back(op);
         }
     }
 }
 
 void HTwoHeuristic::dijkstra(
-    const vector<Pair> &init_pairs) {
+    const Tuple &state_facts) {
 
     priority_queue<
-        pair<int, Pair>,
-        vector<pair<int, Pair>>,
-        PairCompare> pq;
+        pair<int, FactPair>,
+        vector<pair<int, FactPair>>,
+        greater<>> pq;
 
-    for (const auto &node : init_pairs) {
+    for (const auto &node : state_facts) {
         pq.emplace(0, node);
     }
 
     while (!pq.empty()) {
         int current_cost = pq.top().first;
-        Pair current_node = pq.top().second;
+        FactPair current_node = pq.top().second;
         pq.pop();
 
         if (distances[current_node] < current_cost) {
             continue;
         }
-        //TODO: Find a meaning full neighbor relation that creates an efficent table order
-        for (auto op : task_proxy.get_operators()) {
+        vector<OperatorProxy> operators = operator_pre_list[current_node];
+        for (auto op : operators) {
             OperatorInfo op_info = operator_info_list[op.get_id()];
             int new_cost = current_cost + op.get_cost();
-            if (find(op_info.preconditions.begin(), op_info.preconditions.end(), current_node.first) == op_info.preconditions.end() ||
-                find(op_info.preconditions.begin(), op_info.preconditions.end(), current_node.second) == op_info.preconditions.end()
-                ) {
-                for (auto pair : op_info.partial_effects) {
-                    if (new_cost < distances[pair]) {
-                        distances[pair] = new_cost;
-                        pq.emplace(new_cost, pair);
-                    }
+            for (auto fact : op_info.effects) {
+                if (new_cost < distances[fact]) {
+                    distances[fact] = new_cost;
+                    pq.emplace(new_cost, fact);
                 }
             }
         }
     }
-    sort(table_order.begin(), table_order.end(), CompareDistance(distances));
+    for (auto &entry : distances) {
+    	//log << entry.first << " = " << entry.second << endl;
+    }
+	sort(table_order.begin(), table_order.end(), CompareDistance(distances));
 }
 
 
@@ -183,7 +175,7 @@ void HTwoHeuristic::update_hm_table() {
         ++iterations;
         was_updated = false;
         for (Pair pair : table_order) {
-            for (OperatorProxy op : operator_list[pair.first]) {
+            for (OperatorProxy op : operator_eff_list[pair.first]) {
                 OperatorInfo &op_info = operator_info_list[op.get_id()];
                 Tuple pre(op_info.preconditions);
                 auto it = lower_bound(pre.begin(), pre.end(), pair.second);
@@ -217,7 +209,7 @@ void HTwoHeuristic::update_hm_table() {
             if (pair.second.var == -1) {
                 continue;
             }
-            for (OperatorProxy op : operator_list[pair.second]) {
+            for (OperatorProxy op : operator_eff_list[pair.second]) {
                 OperatorInfo &op_info = operator_info_list[op.get_id()];
                 Tuple pre(op_info.preconditions);
                 bool is_valid = true;
