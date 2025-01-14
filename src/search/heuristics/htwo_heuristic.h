@@ -71,7 +71,8 @@ class HTwoHeuristic : public Heuristic {
 
     std::vector<Tuple> precondition_cache;
     std::vector<std::vector<Pair>> partial_effect_cache;
-    mutable std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> op_dictionary;
+    std::vector<std::vector<bool>> contradictions_cache;
+    mutable std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> op_dict;
 
 	std::deque<OperatorProxy> op_queue;
     std::unordered_set<int> is_op_in_queue; // for constant check if op in queue
