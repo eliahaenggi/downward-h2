@@ -74,6 +74,7 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
             vector<OperatorProxy> op_list;
             for (OperatorProxy op : task_proxy.get_operators()) {
        			Tuple pre = task_properties::get_fact_pairs(op.get_preconditions());
+                // Add all operators that could lead to improvements when fact is updated
                 if (find(pre.begin(), pre.end(), FactPair(i, j)) != pre.end() || pre.empty()) {
                 	op_list.push_back(op);
                 }
@@ -107,16 +108,10 @@ void HTwoHeuristic::init_operator_caches() {
         // Setup precondition cache
         Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
-    	precondition_cache[op.get_id()] = preconditions;
+    	precondition_cache.push_back(preconditions);
 
-        // Setup operator queue
-        bool is_applicable = true;
-        for (auto pair : preconditions) {
-            if (hm_table[Pair(pair, FactPair(-1, -1))] != 0) {
-                is_applicable = false;
-            }
-        }
-        if (is_applicable) {
+		// Initialize operator queue with applicable operators
+        if (is_op_applicable(preconditions)) {
             op_queue.push_back(op);
             is_op_in_queue.insert(op.get_id());
         }
@@ -127,10 +122,17 @@ void HTwoHeuristic::init_operator_caches() {
         	effects.push_back(eff.get_fact().get_pair());
     	}
     	sort(effects.begin(), effects.end());
-		vector<Pair> partial_effs;
-		generate_all_partial_tuples(effects, partial_effs);
-		partial_effect_cache[op.get_id()] = partial_effs;
+		partial_effect_cache.push_back(generate_all_pairs(effects));
     }
+}
+
+bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
+	for (auto fact : pre) {
+    	if (hm_table.at(Pair(fact, FactPair(-1, -1))) != 0) {
+        	return false;
+        }
+    }
+    return true;
 }
 
 
@@ -147,11 +149,9 @@ void HTwoHeuristic::update_hm_table() {
              continue;
          }
          for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
-             int val = update_hm_entry(partial_eff, c1 + op.get_cost());
+             update_hm_entry(partial_eff, c1 + op.get_cost());
 
-             if (val != -1 && partial_eff.second.var == -1) {
-                 extend_tuple(partial_eff.first, op, c1);
-             } else if (val == -1 && partial_eff.second.var == -1) {
+             if (partial_eff.second.var == -1) {
                  extend_tuple(partial_eff.first, op, c1);
              }
          }
@@ -170,10 +170,10 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
         	continue;
         }
     	for (int j = 0; j < task_proxy.get_variables()[i].get_domain_size(); ++j) {
-        	FactPair fact = FactPair(i, j);
-        	int c2 = hm_table_evaluation(pre, fact, eval);
+        	FactPair extend_fact = FactPair(i, j);
+        	int c2 = extend_eval(extend_fact, pre, eval);
         	if (c2 != INT_MAX) {
-            	Pair hm_pair = f.var > fact.var ? Pair(fact, f) : Pair(f, fact);
+            	Pair hm_pair = f.var > extend_fact.var ? Pair(extend_fact, f) : Pair(f, extend_fact);
             	update_hm_entry(hm_pair, c2 + op.get_cost());
         	}
         }
@@ -181,18 +181,17 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
 }
 
 /*
- * Evaluates tuple by computing the maximum heuristic value among all its partial tuples.
+ * Evaluates tuple by computing the maximum heuristic value among all its partial tuples. Used for pre(op) and goal.
  */
 int HTwoHeuristic::eval(const Tuple &t) const {
-    vector<Pair> partial;
-    generate_all_partial_tuples(t, partial);
+    vector<Pair> pairs = generate_all_pairs(t);
     int max = 0;
-    for (Pair &pair : partial) {
+    for (Pair &pair : pairs) {
         int h = hm_table.at(pair);
 
         if (h > max) {
         	if (h == INT_MAX) {
-                  return INT_MAX;
+            	return INT_MAX;
             }
         	max = h;
         }
@@ -200,18 +199,18 @@ int HTwoHeuristic::eval(const Tuple &t) const {
     return max;
 }
 
-// Evaluates (t + fact). t-evaluation already given with eval.
-int HTwoHeuristic::hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const {
-    int fact_eval = hm_table.at(Pair(fact, FactPair(-1, -1)));
+// Evaluates extend_fact + pre. pre already evaluated with eval.
+int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const {
+    int fact_eval = hm_table.at(Pair(extend_fact, FactPair(-1, -1)));
     int max = eval > fact_eval ? eval : fact_eval;
-    for (FactPair fact0 : t) {
-      	if (fact0.var == fact.var) {
-          	if (fact0.value != fact.value) {
+    for (FactPair fact0 : pre) {
+      	if (fact0.var == extend_fact.var) {
+          	if (fact0.value != extend_fact.value) {
                   return INT_MAX;
           	}
         	return eval;
         }
-        Pair key = (fact0.var < fact.var) ? Pair(fact0, fact) : Pair(fact, fact0);
+        Pair key = (fact0.var < extend_fact.var) ? Pair(fact0, extend_fact) : Pair(extend_fact, fact0);
         int h = hm_table.at(key);
 
         if (h > max) {
@@ -250,6 +249,7 @@ int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     return -1;
 }
 
+
 bool HTwoHeuristic::contradict_effect_of(
     const OperatorProxy &op, int fact_var) const {
     for (EffectProxy eff : op.get_effects()) {
@@ -263,8 +263,8 @@ bool HTwoHeuristic::contradict_effect_of(
 /*
  * Generates all partial tuples of size <= m from given base tuple.
  */
-void HTwoHeuristic::generate_all_partial_tuples(
-    const Tuple &base_tuple, vector<Pair> &res) const {
+vector<HTwoHeuristic::Pair> HTwoHeuristic::generate_all_pairs(const Tuple &base_tuple) const {
+	vector<Pair> res;
     res.reserve(base_tuple.size() * (base_tuple.size() + 1) / 2);
 
     for (size_t i = 0; i < base_tuple.size(); ++i) {
@@ -274,6 +274,7 @@ void HTwoHeuristic::generate_all_partial_tuples(
             res.emplace_back(base_tuple[i], base_tuple[j]);
         }
     }
+    return res;
 }
 
 void HTwoHeuristic::print_table() const {

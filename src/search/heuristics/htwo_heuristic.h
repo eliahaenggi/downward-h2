@@ -66,34 +66,35 @@ class HTwoHeuristic : public Heuristic {
         }
     };
 
-    // h^m table
+    // data structures
     std::unordered_map<Pair, int, PairHash> hm_table;
-    mutable std::unordered_map<int, Tuple> precondition_cache;
-    mutable std::unordered_map<int, std::vector<Pair>> partial_effect_cache;
 
+    std::vector<Tuple> precondition_cache;
+    std::vector<std::vector<Pair>> partial_effect_cache;
     mutable std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> op_dictionary;
+
 	std::deque<OperatorProxy> op_queue;
-    std::unordered_set<int> is_op_in_queue; // For checks if op in queue
+    std::unordered_set<int> is_op_in_queue; // for constant check if op in queue
 
-    // auxiliary methods
+    // Methods for initalizing data structures
     void init_hm_table(const Tuple &state_facts);
+    int check_in_initial_state(
+    const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
     void init_operator_caches();
-    void update_hm_table();
-    int eval(const Tuple &t) const;
-    int hm_table_evaluation(const Tuple &t, const FactPair &fact, int eval) const;
-    int update_hm_entry(const Pair &p, int val);
-    void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
+    bool is_op_applicable(Tuple pre) const;
 
+    // Methods for updating table
+    void update_hm_table();
+    void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
+    int eval(const Tuple &t) const;
+    int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
+
+    int update_hm_entry(const Pair &p, int val);
     void add_operator_to_queue(const FactPair &f);
 
-    int check_in_initial_state(
-        const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
-
-    int get_operator_pre_value(const OperatorProxy &op, int var) const;
     bool contradict_effect_of(const OperatorProxy &op, int fact_var) const;
 
-	void generate_all_partial_tuples(const Tuple &base_tuple,
-                                     std::vector<Pair> &res) const;
+	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
 
     void print_table() const;
 
