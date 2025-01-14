@@ -93,8 +93,6 @@ class HTwoHeuristic : public Heuristic {
     int update_hm_entry(const Pair &p, int val);
     void add_operator_to_queue(const FactPair &f);
 
-    bool contradict_effect_of(const OperatorProxy &op, int fact_var) const;
-
 	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
 
     void print_table() const;

@@ -32,8 +32,9 @@ DRIVER_OPTIONS = [
 ]
 # Pairs of revision identifier and optional revision nick.
 REV_NICKS = [
-    ("operator_queue", "op_queue"),
-    ("main", "normal")
+    ("963fdbd2705eb3e19cc526a0f5955bd20a8f0932", "op_queue_contradiction"),
+    ("04a32ae39d99fd1684a68f54e878eb5fcdd33762", "op_queue_before"),
+    ("61c353b871209e47be96f84d39dfdbc90e2ba8b6", "normal")
 ]
 ATTRIBUTES = [
     "error",

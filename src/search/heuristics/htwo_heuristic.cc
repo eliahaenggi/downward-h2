@@ -68,13 +68,27 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
     unordered_set<FactPair, FactPairHash> state_facts_set(state_facts.begin(), state_facts.end());
     state_facts_set.insert(FactPair(-1, -1));
 
+    // Check fpr operators without preconditions
+    vector<OperatorProxy> empty_pre_op;
+    for (auto op : task_proxy.get_operators()) {
+        if (op.get_preconditions().empty()) {
+            empty_pre_op.push_back(op);
+        }
+    }
+
     int num_variables = task_proxy.get_variables().size();
     for (int i = 0; i < num_variables; ++i) {
         int domain1_size = task_proxy.get_variables()[i].get_domain_size();
         for (int j = 0; j < domain1_size; ++j) {
-            op_dict[FactPair(i, j)] = {};
+
+            // Add op with no preconditions as default applicable
+            for (auto op : empty_pre_op) {
+                op_dict[FactPair(i, j)].push_back(op);
+            }
+
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
-            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);;
+            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);
+
             for (int k = i + 1; k < num_variables; ++k) {
                 int domain2_size = task_proxy.get_variables()[k].get_domain_size();
                 for (int l = 0; l < domain2_size; ++l) {
@@ -86,6 +100,7 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
     }
 }
 
+// Check if Pair is contained in inital state facts. Unordered set allows constant time access.
 int HTwoHeuristic::check_in_initial_state(
     const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const {
     bool found_first = state_facts_set.find(hm_entry.first) != state_facts_set.end();
@@ -109,6 +124,7 @@ void HTwoHeuristic::init_operator_caches() {
         	op_dict[pre].push_back(op);
         }
 
+
 		// Initialize operator queue with applicable operators
         if (is_op_applicable(preconditions)) {
             op_queue.push_back(op);
@@ -126,6 +142,7 @@ void HTwoHeuristic::init_operator_caches() {
     }
 }
 
+// Check if op is applicable in initial state. Only works for initial state as it does only consider single fact table entries.
 bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
 	for (auto fact : pre) {
     	if (hm_table.at(Pair(fact, FactPair(-1, -1))) != 0) {
@@ -223,6 +240,7 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
     return max;
 }
 
+// Adds operators to the queue if its precondition f was updated
 void HTwoHeuristic::add_operator_to_queue(const FactPair &f) {
 	vector<OperatorProxy> ops = op_dict[f];
     for (OperatorProxy op : ops) {
@@ -247,17 +265,6 @@ int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
         return val;
     }
     return -1;
-}
-
-
-bool HTwoHeuristic::contradict_effect_of(
-    const OperatorProxy &op, int fact_var) const {
-    for (EffectProxy eff : op.get_effects()) {
-        if (eff.get_fact().get_variable().get_id() == fact_var) {
-            return true;
-        }
-    }
-    return false;
 }
 
 /*
