@@ -68,7 +68,7 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
     unordered_set<FactPair, FactPairHash> state_facts_set(state_facts.begin(), state_facts.end());
     state_facts_set.insert(FactPair(-1, -1));
 
-    // Check fpr operators without preconditions
+    // Check for operators without preconditions
     vector<OperatorProxy> empty_pre_op;
     for (auto op : task_proxy.get_operators()) {
         if (op.get_preconditions().empty()) {
@@ -80,6 +80,7 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
     for (int i = 0; i < num_variables; ++i) {
         int domain1_size = task_proxy.get_variables()[i].get_domain_size();
         for (int j = 0; j < domain1_size; ++j) {
+			op_dict[FactPair(i, j)] = {};
 
             // Add op with no preconditions as default applicable
             for (auto op : empty_pre_op) {
@@ -161,6 +162,7 @@ void HTwoHeuristic::update_hm_table() {
          OperatorProxy op = op_queue.front();
          op_queue.pop_front();
          is_op_in_queue.erase(op.get_id());
+
          int c1 = eval(precondition_cache[op.get_id()]);
          if (c1 == INT_MAX) {
              continue;
@@ -188,9 +190,16 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
         }
     	for (int j = 0; j < task_proxy.get_variables()[i].get_domain_size(); ++j) {
         	FactPair extend_fact = FactPair(i, j);
+
+            if (hm_table.at(Pair(extend_fact, FactPair(-1, -1))) == INT_MAX) {
+            	continue;
+            }
+            Pair hm_pair = f.var > extend_fact.var ? Pair(extend_fact, f) : Pair(f, extend_fact);
+            if (hm_table.at(hm_pair) <= eval) {
+            	continue;
+            }
         	int c2 = extend_eval(extend_fact, pre, eval);
         	if (c2 != INT_MAX) {
-            	Pair hm_pair = f.var > extend_fact.var ? Pair(extend_fact, f) : Pair(f, extend_fact);
             	update_hm_entry(hm_pair, c2 + op.get_cost());
         	}
         }
@@ -240,7 +249,7 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
     return max;
 }
 
-// Adds operators to the queue if its precondition f was updated
+// Adds operators to the queue if f is precondition and was updated
 void HTwoHeuristic::add_operator_to_queue(const FactPair &f) {
 	vector<OperatorProxy> ops = op_dict[f];
     for (OperatorProxy op : ops) {
