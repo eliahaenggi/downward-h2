@@ -17,20 +17,11 @@ class Options;
 }
 
 namespace htwo_heuristic {
-/*
-  Haslum's h^m heuristic family ("critical path heuristics").
-
-  This is a very slow implementation and should not be used for
-  speed benchmarks.
-*/
-
 class HTwoHeuristic : public Heuristic {
     using Tuple = std::vector<FactPair>;
 
     // parameters
-    const int m;
     const bool has_cond_effects;
-
     const Tuple goals;
 
 
@@ -68,14 +59,16 @@ class HTwoHeuristic : public Heuristic {
 
     // data structures
     std::unordered_map<Pair, int, PairHash> hm_table;
+    std::deque<OperatorProxy> op_queue;
 
+    // Auxiliary data structurs that speed up implementation (Could also be removed in case of memory issues)
+    std::unordered_set<int> is_op_in_queue; // stores all operators that are in queue for constant time look up
     std::vector<Tuple> precondition_cache;
     std::vector<std::vector<Pair>> partial_effect_cache;
-    std::vector<std::vector<bool>> contradictions_cache;
+    std::vector<std::vector<bool>> contradictions_cache; // Stores if variable is in effect of operator
+    // Stores for each FactPair a list of operators where the fact occures in pre
     mutable std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> op_dict;
 
-	std::deque<OperatorProxy> op_queue;
-    std::unordered_set<int> is_op_in_queue; // for constant check if op in queue
 
     // Methods for initalizing data structures
     void init_hm_table(const Tuple &state_facts);
@@ -102,11 +95,10 @@ protected:
 
 public:
     HTwoHeuristic(
-        int m, const std::shared_ptr<AbstractTask> &transform,
+        const std::shared_ptr<AbstractTask> &transform,
         bool cache_estimates, const std::string &description,
         utils::Verbosity verbosity);
 
-    virtual bool dead_ends_are_reliable() const override;
 };
 }
 
