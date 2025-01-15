@@ -80,13 +80,7 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
     for (int i = 0; i < num_variables; ++i) {
         int domain1_size = task_proxy.get_variables()[i].get_domain_size();
         for (int j = 0; j < domain1_size; ++j) {
-			op_dict[FactPair(i, j)] = {};
-
-            // Add op with no preconditions as default applicable
-            for (auto op : empty_pre_op) {
-                op_dict[FactPair(i, j)].push_back(op);
-            }
-
+			op_dict[FactPair(i, j)] = empty_pre_op;
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
             hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);
 
@@ -143,7 +137,7 @@ void HTwoHeuristic::init_operator_caches() {
     }
 }
 
-// Check if op is applicable in initial state. Only works for initial state as it does only consider single fact table entries.
+// Check if op is applicable in initial state. Only works for initial state as it only considers single fact table entries.
 bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
 	for (auto fact : pre) {
     	if (hm_table.at(Pair(fact, FactPair(-1, -1))) != 0) {
@@ -190,7 +184,6 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
         }
     	for (int j = 0; j < task_proxy.get_variables()[i].get_domain_size(); ++j) {
         	FactPair extend_fact = FactPair(i, j);
-
             if (hm_table.at(Pair(extend_fact, FactPair(-1, -1))) == INT_MAX) {
             	continue;
             }
