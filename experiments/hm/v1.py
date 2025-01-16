@@ -8,14 +8,16 @@ from lab.environments import LocalEnvironment, BaselSlurmEnvironment
 import common_setup
 from common_setup import IssueConfig, IssueExperiment
 
+def rename_runs(run):
+    run["algorithm"] = run["algorithm"][25:]
+    return True
+
+
 ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = [
-    ("h2_standard", "61c353b871209e47be96f84d39dfdbc90e2ba8b6"),
-    ("h2_operator_queue", "3352d00072fb7d2942ea811a574618a01fc3adb5")
-]
+REVISIONS = ["61c353b871209e47be96f84d39dfdbc90e2ba8b6", "3352d00072fb7d2942ea811a574618a01fc3adb5"]
 
 BUILDS = ["release"]
 CONFIG_NICKS = [
@@ -61,7 +63,7 @@ exp = IssueExperiment(
     REPO_DIR,
     revisions=REVISIONS,
     configs=CONFIGS,
-    environment=ENVIRONMENT,
+    environment=ENVIRONMENT
 )
 exp.add_suite(BENCHMARKS_DIR, SUITE)
 
@@ -75,8 +77,8 @@ exp.add_step('start', exp.start_runs)
 exp.add_step('parse', exp.parse)
 exp.add_fetcher(name='fetch')
 
-exp.add_absolute_report_step()
-#exp.add_comparison_table_step()
-#exp.add_scatter_plot_step(relative=True, attributes=["total_time", "memory"])
+exp.add_absolute_report_step(filter=[rename_runs])
+exp.add_comparison_table_step(filter=[rename_runs])
+exp.add_scatter_plot_step(relative=True, attributes=["total_time", "memory", "expansions_until_last_jump"])
 
 exp.run_steps()
