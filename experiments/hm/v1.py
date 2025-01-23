@@ -5,23 +5,20 @@ import os
 
 from lab.environments import LocalEnvironment, BaselSlurmEnvironment
 
+from downward.reports.compare import ComparativeReport
+
 import common_setup
 from common_setup import IssueConfig, IssueExperiment
-
-def rename_runs(run):
-    run["algorithm"] = run["algorithm"][25:]
-    return True
-
 
 ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = ["61c353b871209e47be96f84d39dfdbc90e2ba8b6", "3352d00072fb7d2942ea811a574618a01fc3adb5"]
-
+REVISIONS = ["main"]
 BUILDS = ["release"]
 CONFIG_NICKS = [
-    ("astar-h2", ["--search", "astar(h2())"])
+    ("astar-h2", ["--search", "astar(h2())"]),
+    ("astar-hm", ["--search", "astar(hm())"]),
 ]
 CONFIGS = [
     IssueConfig(
@@ -42,9 +39,9 @@ ENVIRONMENT = BaselSlurmEnvironment(
     # setup='export PATH=/scicore/soft/apps/CMake/3.23.1-GCCcore-11.3.0/bin:/scicore/soft/apps/libarchive/3.6.1-GCCcore-11.3.0/bin:/scicore/soft/apps/cURL/7.83.0-GCCcore-11.3.0/bin:/scicore/soft/apps/Python/3.10.4-GCCcore-11.3.0/bin:/scicore/soft/apps/OpenSSL/1.1/bin:/scicore/soft/apps/XZ/5.2.5-GCCcore-11.3.0/bin:/scicore/soft/apps/SQLite/3.38.3-GCCcore-11.3.0/bin:/scicore/soft/apps/Tcl/8.6.12-GCCcore-11.3.0/bin:/scicore/soft/apps/ncurses/6.3-GCCcore-11.3.0/bin:/scicore/soft/apps/bzip2/1.0.8-GCCcore-11.3.0/bin:/scicore/soft/apps/binutils/2.38-GCCcore-11.3.0/bin:/scicore/soft/apps/GCCcore/11.3.0/bin:/infai/sieverss/repos/bin:/infai/sieverss/local:/export/soft/lua_lmod/centos7/lmod/lmod/libexec:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:$PATH\nexport LD_LIBRARY_PATH=/scicore/soft/apps/libarchive/3.6.1-GCCcore-11.3.0/lib:/scicore/soft/apps/cURL/7.83.0-GCCcore-11.3.0/lib:/scicore/soft/apps/Python/3.10.4-GCCcore-11.3.0/lib:/scicore/soft/apps/OpenSSL/1.1/lib:/scicore/soft/apps/libffi/3.4.2-GCCcore-11.3.0/lib64:/scicore/soft/apps/GMP/6.2.1-GCCcore-11.3.0/lib:/scicore/soft/apps/XZ/5.2.5-GCCcore-11.3.0/lib:/scicore/soft/apps/SQLite/3.38.3-GCCcore-11.3.0/lib:/scicore/soft/apps/Tcl/8.6.12-GCCcore-11.3.0/lib:/scicore/soft/apps/libreadline/8.1.2-GCCcore-11.3.0/lib:/scicore/soft/apps/ncurses/6.3-GCCcore-11.3.0/lib:/scicore/soft/apps/bzip2/1.0.8-GCCcore-11.3.0/lib:/scicore/soft/apps/binutils/2.38-GCCcore-11.3.0/lib:/scicore/soft/apps/zlib/1.2.12-GCCcore-11.3.0/lib:/scicore/soft/apps/GCCcore/11.3.0/lib64',
 )
 """
-If your experiments sometimes have GCLIBX errors, you can use the 
-"setup" parameter instead of the "export" parameter above for setting 
-environment variables which "load" the right modules. ("module load" 
+If your experiments sometimes have GCLIBX errors, you can use the
+"setup" parameter instead of the "export" parameter above for setting
+environment variables which "load" the right modules. ("module load"
 doesn't do anything else than setting environment variables.)
 # paths obtained via:
 # module purge
@@ -63,7 +60,7 @@ exp = IssueExperiment(
     REPO_DIR,
     revisions=REVISIONS,
     configs=CONFIGS,
-    environment=ENVIRONMENT
+    environment=ENVIRONMENT,
 )
 exp.add_suite(BENCHMARKS_DIR, SUITE)
 
@@ -77,8 +74,25 @@ exp.add_step('start', exp.start_runs)
 exp.add_step('parse', exp.parse)
 exp.add_fetcher(name='fetch')
 
-exp.add_absolute_report_step(filter=[rename_runs])
-exp.add_comparison_table_step(filter=[rename_runs])
-exp.add_scatter_plot_step(relative=True, attributes=["total_time", "memory", "expansions_until_last_jump"])
+rev = REVISIONS[0]
+def make_comparison_tables():
+    compared_configs = [
+        (f'{rev}-astar-hm', f'{rev}-astar-h2', 'Diff'),
+    ]
+    report = ComparativeReport(
+        compared_configs, attributes=exp.DEFAULT_TABLE_ATTRIBUTES)
+    outfile = os.path.join(
+        exp.eval_dir,
+        f"{exp.name}-comparison.{report.output_format}")
+    report(exp.eval_dir, outfile)
+
+SCATTER_PLOT_PAIRS = [
+    ('astar-hm', 'astar-h2', rev, rev, attribute)
+    for attribute in ['total_time', 'memory']
+]
+
+exp.add_absolute_report_step()
+exp.add_step("make-comparison-tables", make_comparison_tables)
+exp.add_scatter_plot_step(relative=True, additional=SCATTER_PLOT_PAIRS)
 
 exp.run_steps()

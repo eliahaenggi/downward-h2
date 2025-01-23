@@ -20,8 +20,10 @@ SUITE = ["depot:p02.pddl", "driverlog:p02.pddl", "gripper:prob01.pddl", "gripper
 ENV = project.LocalEnvironment(processes=2)
 
 CONFIGS = [
-    ("h2_astar", ["--search", "astar(h2())"])
+    ("astar-h2", ["--search", "astar(h2())"]),
+    ("astar-hm", ["--search", "astar(hm())"]),
 ]
+
 BUILD_OPTIONS = []
 DRIVER_OPTIONS = [
     "--validate",
@@ -32,11 +34,9 @@ DRIVER_OPTIONS = [
 ]
 # Pairs of revision identifier and optional revision nick.
 REV_NICKS = [
-    ("963fdbd2705eb3e19cc526a0f5955bd20a8f0932", "op_queue_contradiction"),
-    ("04a32ae39d99fd1684a68f54e878eb5fcdd33762", "op_queue_before"),
-    ("61c353b871209e47be96f84d39dfdbc90e2ba8b6", "normal")
-
+    ("40a2208d6190b36f020940d93ac07178ce08d3a0", "op_queue")
 ]
+
 ATTRIBUTES = [
     "error",
     "run_dir",
