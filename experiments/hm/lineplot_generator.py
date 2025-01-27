@@ -4,7 +4,17 @@ import matplotlib.pyplot as plt
 
 def plot_lineplots(experiment_name="hm-v1"):
 
-    base_dir = os.path.join("data", experiment_name, "runs-00001-00100/")
+    base_dir = os.path.join("data", experiment_name)
+
+    runs_dir = next(
+        (d for d in os.listdir(base_dir) if d.startswith("runs") and os.path.isdir(os.path.join(base_dir, d))),
+        None
+    )
+    if not runs_dir:
+        print(f"No directory starting with 'runs' found in {base_dir}.")
+        return
+
+    base_dir = os.path.join(base_dir, runs_dir)
 
     subdirs = [os.path.join(base_dir, subdir) for subdir in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, subdir))]
 
@@ -36,7 +46,6 @@ def plot_lineplots(experiment_name="hm-v1"):
         data_by_config[label] = sorted([time for time in data_by_config[label] if time is not None])
         data_by_config[label].extend([None] * unsolved_instances)
 
-
     plt.figure(figsize=(12, 8))
 
     for label, total_times in data_by_config.items():
@@ -59,4 +68,4 @@ def plot_lineplots(experiment_name="hm-v1"):
 
     print(f"Lineplot saved at {output_path}")
 
-plot_lineplots()
+plot_lineplots("hm")
