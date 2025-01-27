@@ -59,4 +59,4 @@ def plot_lineplots(experiment_name="hm-v1"):
 
     print(f"Lineplot saved at {output_path}")
 
-plot_lineplots(experiment_name="hm")
+plot_lineplots()

@@ -14,7 +14,7 @@ ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = ["main"]
+REVISIONS = ["f2e6407f496de3f10e4504263a646502510a17e4"]
 BUILDS = ["release"]
 CONFIG_NICKS = [
     ("astar-h2", ["--search", "astar(h2())"]),
