@@ -6,17 +6,22 @@ def plot_lineplots(experiment_name="hm-v1"):
 
     base_dir = os.path.join("data", experiment_name)
 
-    runs_dir = next(
-        (d for d in os.listdir(base_dir) if d.startswith("runs") and os.path.isdir(os.path.join(base_dir, d))),
-        None
-    )
-    if not runs_dir:
+    runs_dirs = [
+        os.path.join(base_dir, d) for d in os.listdir(base_dir)
+        if d.startswith("runs") and os.path.isdir(os.path.join(base_dir, d))
+    ]
+    if not runs_dirs:
         print(f"No directory starting with 'runs' found in {base_dir}.")
         return
 
-    base_dir = os.path.join(base_dir, runs_dir)
+    all_subdirs = []
+    for runs_dir in runs_dirs:
+        subdirs = [os.path.join(runs_dir, subdir) for subdir in os.listdir(runs_dir) if os.path.isdir(os.path.join(runs_dir, subdir))]
+        all_subdirs.extend(subdirs)
 
-    subdirs = [os.path.join(base_dir, subdir) for subdir in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, subdir))]
+    if not all_subdirs:
+        print("No runs found.")
+        return
 
     data_by_config = {}
 
@@ -68,4 +73,4 @@ def plot_lineplots(experiment_name="hm-v1"):
 
     print(f"Lineplot saved at {output_path}")
 
-plot_lineplots("hm")
+plot_lineplots()

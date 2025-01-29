@@ -93,6 +93,6 @@ SCATTER_PLOT_PAIRS = [
 
 exp.add_absolute_report_step()
 exp.add_step("make-comparison-tables", make_comparison_tables)
-exp.add_scatter_plot_step(relative=True, additional=SCATTER_PLOT_PAIRS)
+exp.add_scatter_plot_step(relative=False, additional=SCATTER_PLOT_PAIRS)
 
 exp.run_steps()
