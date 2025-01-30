@@ -15,6 +15,7 @@ using relaxation_heuristic::Proposition;
 using relaxation_heuristic::UnaryOperator;
 
 class HSPMaxHeuristic : public relaxation_heuristic::RelaxationHeuristic {
+    bool apply_pi_m_compilation;
     priority_queues::AdaptiveQueue<PropID> queue;
 
     void setup_exploration_queue();
@@ -33,7 +34,7 @@ class HSPMaxHeuristic : public relaxation_heuristic::RelaxationHeuristic {
 protected:
     virtual int compute_heuristic(const State &ancestor_state) override;
 public:
-    HSPMaxHeuristic(
+    HSPMaxHeuristic(bool pi_m_compilation,
         tasks::AxiomHandlingType axioms,
         const std::shared_ptr<AbstractTask> &transform,
         bool cache_estimates, const std::string &description,

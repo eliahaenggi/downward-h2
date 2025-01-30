@@ -2,6 +2,7 @@
 
 #include "../plugins/plugin.h"
 #include "../utils/logging.h"
+#include "../tasks/pi_m_compiled_task.h"
 
 #include <cassert>
 #include <vector>
@@ -22,13 +23,20 @@ namespace max_heuristic {
  */
 
 // construction and destruction
-HSPMaxHeuristic::HSPMaxHeuristic(
+HSPMaxHeuristic::HSPMaxHeuristic(bool pi_m_compilation,
     tasks::AxiomHandlingType axioms,
     const shared_ptr<AbstractTask> &transform, bool cache_estimates,
     const string &description, utils::Verbosity verbosity)
     : RelaxationHeuristic(
           axioms, transform, cache_estimates, description,
           verbosity) {
+    apply_pi_m_compilation = pi_m_compilation;
+
+    if (apply_pi_m_compilation) {
+    	shared_ptr<AbstractTask> compiled_task = extra_tasks::build_pi_m_compiled_task(task);
+    }
+
+
     if (log.is_at_least_normal()) {
         log << "Initializing HSP max heuristic..." << endl;
     }
@@ -110,11 +118,11 @@ public:
         document_title("Max heuristic");
 
         relaxation_heuristic::add_relaxation_heuristic_options_to_feature(*this, "hmax");
+        add_option<bool>("pi_m_compilation", "", "False");
 
         document_language_support("action costs", "supported");
         document_language_support("conditional effects", "supported");
         document_language_support("axioms", "supported");
-
         document_property("admissible", "yes for tasks without axioms");
         document_property("consistent", "yes for tasks without axioms");
         document_property("safe", "yes");
@@ -125,7 +133,7 @@ public:
         const plugins::Options &opts,
         const utils::Context &) const override {
         return plugins::make_shared_from_arg_tuples<HSPMaxHeuristic>(
-            relaxation_heuristic::get_relaxation_heuristic_arguments_from_options(opts)
+            opts.get<bool>("pi_m_compilation"), relaxation_heuristic::get_relaxation_heuristic_arguments_from_options(opts)
             );
     }
 };

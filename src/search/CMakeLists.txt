@@ -669,6 +669,15 @@ create_fast_downward_library(
 )
 
 create_fast_downward_library(
+        NAME pi_m_compilation
+        HELP "Pi^m Compilation"
+        SOURCES
+        tasks/pi_m_compiled_task
+        DEPENDS
+        task_properties
+)
+
+create_fast_downward_library(
     NAME landmark_cut_heuristic
     HELP "The LM-cut heuristic"
     SOURCES
@@ -966,13 +975,4 @@ create_fast_downward_library(
     SOURCES
         algorithms/sccs
     DEPENDENCY_ONLY
-)
-
-create_fast_downward_library(
-    NAME h2_heuristic
-    HELP "The h^m heuristic for m = 2"
-    SOURCES
-        heuristics/h2_heuristic
-    DEPENDS
-        task_properties
 )
