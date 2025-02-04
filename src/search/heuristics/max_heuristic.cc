@@ -28,14 +28,8 @@ HSPMaxHeuristic::HSPMaxHeuristic(bool pi_m_compilation,
     const shared_ptr<AbstractTask> &transform, bool cache_estimates,
     const string &description, utils::Verbosity verbosity)
     : RelaxationHeuristic(
-          axioms, transform, cache_estimates, description,
+          axioms, get_pi_m_compiled_task(pi_m_compilation, transform), cache_estimates, description,
           verbosity) {
-    apply_pi_m_compilation = pi_m_compilation;
-
-    if (apply_pi_m_compilation) {
-    	shared_ptr<AbstractTask> compiled_task = extra_tasks::build_pi_m_compiled_task(task);
-    }
-
 
     if (log.is_at_least_normal()) {
         log << "Initializing HSP max heuristic..." << endl;
@@ -58,6 +52,7 @@ void HSPMaxHeuristic::setup_exploration_queue() {
             enqueue_if_necessary(op.effect, op.base_cost);
     }
 }
+
 
 void HSPMaxHeuristic::setup_exploration_queue_state(const State &state) {
     for (FactProxy fact : state) {
@@ -109,6 +104,14 @@ int HSPMaxHeuristic::compute_heuristic(const State &ancestor_state) {
         total_cost = max(total_cost, goal_cost);
     }
     return total_cost;
+}
+
+shared_ptr<AbstractTask> HSPMaxHeuristic::get_pi_m_compiled_task(
+    bool pi_m_compilation, const shared_ptr<AbstractTask> &original_task) {
+    if (pi_m_compilation) {
+        return extra_tasks::build_pi_m_compiled_task(original_task);
+    }
+    return original_task;
 }
 
 class HSPMaxHeuristicFeature

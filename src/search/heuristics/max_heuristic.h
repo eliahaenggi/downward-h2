@@ -22,6 +22,9 @@ class HSPMaxHeuristic : public relaxation_heuristic::RelaxationHeuristic {
     void setup_exploration_queue_state(const State &state);
     void relaxed_exploration();
 
+    std::shared_ptr<AbstractTask> get_pi_m_compiled_task(
+    bool pi_m_compilation, const std::shared_ptr<AbstractTask> &original_task);
+
     void enqueue_if_necessary(PropID prop_id, int cost) {
         assert(cost >= 0);
         Proposition *prop = get_proposition(prop_id);
@@ -39,6 +42,7 @@ public:
         const std::shared_ptr<AbstractTask> &transform,
         bool cache_estimates, const std::string &description,
         utils::Verbosity verbosity);
+
 };
 }
 
