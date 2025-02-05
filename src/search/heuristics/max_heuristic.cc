@@ -47,7 +47,6 @@ void HSPMaxHeuristic::setup_exploration_queue() {
     for (UnaryOperator &op : unary_operators) {
         op.unsatisfied_preconditions = op.num_preconditions;
         op.cost = op.base_cost; // will be increased by precondition costs
-
         if (op.unsatisfied_preconditions == 0)
             enqueue_if_necessary(op.effect, op.base_cost);
     }
@@ -56,6 +55,7 @@ void HSPMaxHeuristic::setup_exploration_queue() {
 
 void HSPMaxHeuristic::setup_exploration_queue_state(const State &state) {
     for (FactProxy fact : state) {
+      	//log << "Fact: " << fact.get_pair() << endl;
         PropID init_prop = get_prop_id(fact);
         enqueue_if_necessary(init_prop, 0);
     }
@@ -94,7 +94,11 @@ int HSPMaxHeuristic::compute_heuristic(const State &ancestor_state) {
     setup_exploration_queue();
     setup_exploration_queue_state(state);
     relaxed_exploration();
-
+	/*
+    for (Proposition &prop : propositions) {
+    	log << get_prop_id(prop) << " = "  << prop.cost << endl;
+    }
+	*/
     int total_cost = 0;
     for (PropID goal_id : goal_propositions) {
         const Proposition *goal = get_proposition(goal_id);

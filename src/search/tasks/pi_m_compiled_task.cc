@@ -22,7 +22,7 @@ PiMCompiledTask::PiMCompiledTask(const shared_ptr<AbstractTask> &parent) : Deleg
     setup_init_and_goal_states();
 	setup_new_ops();
 
-    dump_compiled_task();
+    //dump_compiled_task();
 }
 
 void PiMCompiledTask::store_old_ops() {
@@ -297,6 +297,24 @@ int PiMCompiledTask::get_num_operator_effect_conditions(
         int op_index, int eff_index, bool is_axiom) const {
     (void) op_index; (void) eff_index; (void)is_axiom;
 	return 0;
+}
+
+void PiMCompiledTask::convert_state_values_from_parent(std::vector<int> &values) const {
+    std::vector<int> new_values(domain_size.size(), 0);
+
+    for (const auto &[fact_pairs, index] : meta_atom_map) {
+        const FactPair &first_atom = fact_pairs.first;
+        const FactPair &second_atom = fact_pairs.second;
+
+        bool first_valid = (first_atom.var == -1 || values[first_atom.var] == first_atom.value);
+        bool second_valid = (second_atom.var == -1 || values[second_atom.var] == second_atom.value);
+
+        if (first_valid && second_valid) {
+            new_values[index] = 1;
+        }
+    }
+
+    values = std::move(new_values);
 }
 
 std::shared_ptr<AbstractTask> build_pi_m_compiled_task(
