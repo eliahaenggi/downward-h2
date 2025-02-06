@@ -22,7 +22,7 @@ PiMCompiledTask::PiMCompiledTask(const shared_ptr<AbstractTask> &parent) : Deleg
     setup_init_and_goal_states();
 	setup_new_ops();
 
-    //dump_compiled_task();
+    dump_compiled_task();
 }
 
 void PiMCompiledTask::store_old_ops() {
@@ -48,16 +48,17 @@ void PiMCompiledTask::init_meta_atom_map() {
     int index = 1;
     for (int var = 0; var < num_var; ++var) {
         for (int val = 0; val < parent->get_variable_domain_size(var); ++val) {
-            meta_atom_map[pair(FactPair(var, val), FactPair(-1, -1))] = index;
-            index++;
             string var_name = "v_" + to_string(var) + "=" + to_string(val);
-            fact_names.push_back({"not " + var_name, var_name});
-            for (int variable = var + 1; variable < num_var; ++variable) {
+            for (int variable = var; variable < num_var; ++variable) {
         		for (int value = 0; value < parent->get_variable_domain_size(variable); ++value) {
                     meta_atom_map[pair(FactPair(var, val), FactPair(variable, value))] = index;
             		index++;
-                    string full_var_name = var_name + "," + to_string(variable) + "=" + to_string(value);
-                    fact_names.push_back({"not " + full_var_name, full_var_name});
+                    if (FactPair(var, val) ==  FactPair(variable, value)) {
+                    	fact_names.push_back({"not " + var_name, var_name});
+                    } else {
+                    	string full_var_name = var_name + "," + to_string(variable) + "=" + to_string(value);
+                    	fact_names.push_back({"not " + full_var_name, full_var_name});
+                    }
         		}
     		}
         }
@@ -100,8 +101,7 @@ void PiMCompiledTask::setup_new_ops() {
         vector<FactPair> new_pre = {FactPair(meta_atom_map[pair(FactPair(-1,-1), FactPair(-1,-1))], 1)};
 		for (size_t pre_id = 0; pre_id < old_op_preconditions.size(); ++pre_id) {
         	FactPair pre = old_op_preconditions[pre_id];
-            new_pre.push_back(FactPair(meta_atom_map[pair(pre, FactPair(-1,-1))], 1));
-            for (size_t second_pre_id = pre_id + 1; second_pre_id < old_op_preconditions.size(); ++second_pre_id) {
+            for (size_t second_pre_id = pre_id; second_pre_id < old_op_preconditions.size(); ++second_pre_id) {
                 FactPair second_pre = old_op_preconditions[second_pre_id];
                 FactPair meta_pre = translate_into_meta_atom(pre, second_pre);
                 if (meta_pre.var != -2) {
@@ -117,8 +117,7 @@ void PiMCompiledTask::setup_new_ops() {
         for (size_t eff_id = 0; eff_id < old_op_effects.size(); ++eff_id) {
             FactPair eff = old_op_effects[eff_id];
         	effect_vars.insert(eff.var);
-            new_eff.push_back(FactPair(meta_atom_map[pair(eff, FactPair(-1, -1))], 1));
-            for (size_t second_eff_id = eff_id + 1; second_eff_id < old_op_effects.size(); ++second_eff_id) {
+            for (size_t second_eff_id = eff_id; second_eff_id < old_op_effects.size(); ++second_eff_id) {
             	FactPair second_eff = old_op_effects[second_eff_id];
                 FactPair meta_eff = translate_into_meta_atom(eff, second_eff);
                 if (meta_eff.var != -2) {
@@ -134,13 +133,15 @@ void PiMCompiledTask::setup_new_ops() {
             }
             for (int val = 0; val < 2; val++) {
             	FactPair s_atom = FactPair(var, val);
+                /*
             	if (contradict_precondition(op_id, s_atom)) {
             		continue;
             	}
+                 */
             	op_list.push_back(pair(op_id, s_atom));
             	op_cost.push_back(parent->get_operator_cost(op_id, false));
             	vector<FactPair> copy_pre(new_pre);
-            	copy_pre.push_back(FactPair(meta_atom_map[pair(s_atom, FactPair(-1, -1))], 1));
+            	copy_pre.push_back(FactPair(meta_atom_map[pair(s_atom, s_atom)], 1));
             	for (FactPair pre : old_op_preconditions) {
                 	FactPair meta_pre = translate_into_meta_atom(pre, s_atom);
                 	if (meta_pre.var != -2) {
@@ -205,11 +206,11 @@ void PiMCompiledTask::dump_compiled_task() {
         cout << endl << endl;
     }
     cout << endl << "Init state: ";
-    for (int i = 0; i < parent->get_initial_state_values().size(); i++) {
+    for (size_t i = 0; i < parent->get_initial_state_values().size(); i++) {
     	cout << i << "=" << parent->get_initial_state_values()[i] << ", ";
     }
     cout << endl << "Compiled init state: ";
-    for (int i = 0; i < initial_state_values.size(); i++) {
+    for (size_t i = 0; i < initial_state_values.size(); i++) {
         if (initial_state_values[i] == 1) {
     		cout << fact_names[i][1] << ", ";
         }
@@ -219,7 +220,7 @@ void PiMCompiledTask::dump_compiled_task() {
     	cout << parent->get_goal_fact(i) << ", ";
     }
     cout << endl << "Compiled goal state: ";
-    for (int i = 0; i < goals.size(); i++) {
+    for (size_t i = 0; i < goals.size(); i++) {
     		cout << fact_names[goals[i].var][1] << ", ";
     }
     cout << endl << endl;
@@ -298,6 +299,8 @@ int PiMCompiledTask::get_num_operator_effect_conditions(
     (void) op_index; (void) eff_index; (void)is_axiom;
 	return 0;
 }
+
+
 
 void PiMCompiledTask::convert_state_values_from_parent(std::vector<int> &values) const {
     std::vector<int> new_values(domain_size.size(), 0);

@@ -56,6 +56,7 @@ public:
     virtual int get_num_operator_effect_conditions(
         int op_index, int eff_index, bool is_axiom) const override;
 
+
     virtual void convert_state_values_from_parent(
         std::vector<int> &values) const override;
 

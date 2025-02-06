@@ -55,7 +55,6 @@ void HSPMaxHeuristic::setup_exploration_queue() {
 
 void HSPMaxHeuristic::setup_exploration_queue_state(const State &state) {
     for (FactProxy fact : state) {
-      	//log << "Fact: " << fact.get_pair() << endl;
         PropID init_prop = get_prop_id(fact);
         enqueue_if_necessary(init_prop, 0);
     }
@@ -94,17 +93,13 @@ int HSPMaxHeuristic::compute_heuristic(const State &ancestor_state) {
     setup_exploration_queue();
     setup_exploration_queue_state(state);
     relaxed_exploration();
-	/*
-    for (Proposition &prop : propositions) {
-    	log << get_prop_id(prop) << " = "  << prop.cost << endl;
-    }
-	*/
     int total_cost = 0;
     for (PropID goal_id : goal_propositions) {
         const Proposition *goal = get_proposition(goal_id);
         int goal_cost = goal->cost;
-        if (goal_cost == -1)
+        if (goal_cost == -1) {
             return DEAD_END;
+        }
         total_cost = max(total_cost, goal_cost);
     }
     return total_cost;
