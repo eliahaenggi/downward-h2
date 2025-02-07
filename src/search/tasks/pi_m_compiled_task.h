@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include <unordered_set>
 
 class AbstractTask;
 
@@ -17,13 +18,23 @@ class PiMCompiledTask : public tasks::DelegatingTask {
 	std::vector<int> initial_state_values;
 	std::vector<FactPair> goals;
 	std::vector<std::vector<std::string>> fact_names;
+
     std::vector<std::vector<FactPair>> old_pre;
     std::vector<std::vector<FactPair>> old_eff;
-    std::vector<std::vector<FactPair>> op_pre;
-    std::vector<std::vector<FactPair>> op_eff;
-    std::vector<int> op_cost;
-    std::vector<std::pair<int, FactPair>> op_list;
-	std::shared_ptr<AbstractTask> task;
+
+    struct MetaOperator {
+    int parent_id;
+    FactPair s_atom;
+    std::vector<FactPair> preconditions;
+    std::vector<FactPair> effects;
+    int cost;
+
+    MetaOperator(const int par_id, const FactPair s,
+                 const std::vector<FactPair> pre, const std::vector<FactPair> eff, const int c) :
+				parent_id(par_id), s_atom(s), preconditions(pre), effects(eff), cost(c) {}
+	};
+
+    std::vector<MetaOperator> meta_operators;
 public:
 	PiMCompiledTask(const std::shared_ptr<AbstractTask> &parent);
 
@@ -34,6 +45,8 @@ public:
 
     FactPair translate_into_meta_atom(FactPair first_atom, FactPair second_atom);
     bool contradict_precondition(int op_id, FactPair s_atom);
+    std::vector<FactPair> generate_meta_preconditions(int op_id);
+    std::vector<FactPair> generate_meta_effects(int op_id, std::unordered_set<int> &effect_vars);
 
     void dump_compiled_task();
 
@@ -55,8 +68,6 @@ public:
     virtual std::vector<int> get_initial_state_values() const override;
     virtual int get_num_operator_effect_conditions(
         int op_index, int eff_index, bool is_axiom) const override;
-
-
     virtual void convert_state_values_from_parent(
         std::vector<int> &values) const override;
 
