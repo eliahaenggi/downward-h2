@@ -93,6 +93,11 @@ int HSPMaxHeuristic::compute_heuristic(const State &ancestor_state) {
     setup_exploration_queue();
     setup_exploration_queue_state(state);
     relaxed_exploration();
+    for (PropID goal_id : goal_propositions) {
+    	const Proposition *goal = get_proposition(goal_id);
+        int goal_cost = goal->cost;
+
+    }
     int total_cost = 0;
     for (PropID goal_id : goal_propositions) {
         const Proposition *goal = get_proposition(goal_id);

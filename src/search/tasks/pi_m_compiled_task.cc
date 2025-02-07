@@ -22,7 +22,7 @@ PiMCompiledTask::PiMCompiledTask(const shared_ptr<AbstractTask> &parent) : Deleg
     setup_init_and_goal_states();
 	setup_new_ops();
 
-    dump_compiled_task();
+    //dump_compiled_task();
 }
 
 void PiMCompiledTask::store_old_ops() {
@@ -97,12 +97,11 @@ void PiMCompiledTask::setup_new_ops() {
         // Handle S = ∅
         op_list.push_back(pair(op_id, FactPair(-1, -1)));
         op_cost.push_back(parent->get_operator_cost(op_id, false));
-        vector<FactPair> old_op_preconditions = old_pre[op_id];
         vector<FactPair> new_pre = {FactPair(meta_atom_map[pair(FactPair(-1,-1), FactPair(-1,-1))], 1)};
-		for (size_t pre_id = 0; pre_id < old_op_preconditions.size(); ++pre_id) {
-        	FactPair pre = old_op_preconditions[pre_id];
-            for (size_t second_pre_id = pre_id; second_pre_id < old_op_preconditions.size(); ++second_pre_id) {
-                FactPair second_pre = old_op_preconditions[second_pre_id];
+		for (size_t pre_id = 0; pre_id < old_pre[op_id].size(); ++pre_id) {
+        	FactPair pre = old_pre[op_id][pre_id];
+            for (size_t second_pre_id = pre_id; second_pre_id < old_pre[op_id].size(); ++second_pre_id) {
+                FactPair second_pre = old_pre[op_id][second_pre_id];
                 FactPair meta_pre = translate_into_meta_atom(pre, second_pre);
                 if (meta_pre.var != -2) {
                     new_pre.push_back(meta_pre);
@@ -112,13 +111,12 @@ void PiMCompiledTask::setup_new_ops() {
         op_pre.push_back(new_pre);
         // To Check S ∩ (add(o) ∪ del(o)) = ∅
 		unordered_set<int> effect_vars;
-       	vector<FactPair> old_op_effects = old_eff[op_id];
         vector<FactPair> new_eff = {};
-        for (size_t eff_id = 0; eff_id < old_op_effects.size(); ++eff_id) {
-            FactPair eff = old_op_effects[eff_id];
+        for (size_t eff_id = 0; eff_id < old_eff[op_id].size(); ++eff_id) {
+            FactPair eff = old_eff[op_id][eff_id];
         	effect_vars.insert(eff.var);
-            for (size_t second_eff_id = eff_id; second_eff_id < old_op_effects.size(); ++second_eff_id) {
-            	FactPair second_eff = old_op_effects[second_eff_id];
+            for (size_t second_eff_id = eff_id; second_eff_id < old_eff[op_id].size(); ++second_eff_id) {
+            	FactPair second_eff = old_eff[op_id][second_eff_id];
                 FactPair meta_eff = translate_into_meta_atom(eff, second_eff);
                 if (meta_eff.var != -2) {
                     new_eff.push_back(meta_eff);
@@ -131,18 +129,13 @@ void PiMCompiledTask::setup_new_ops() {
             if (effect_vars.find(var) != effect_vars.end()) {
             	continue;
             }
-            for (int val = 0; val < 2; val++) {
+            for (int val = 0; val < parent->get_variable_domain_size(var); val++) {
             	FactPair s_atom = FactPair(var, val);
-                /*
-            	if (contradict_precondition(op_id, s_atom)) {
-            		continue;
-            	}
-                 */
             	op_list.push_back(pair(op_id, s_atom));
             	op_cost.push_back(parent->get_operator_cost(op_id, false));
             	vector<FactPair> copy_pre(new_pre);
             	copy_pre.push_back(FactPair(meta_atom_map[pair(s_atom, s_atom)], 1));
-            	for (FactPair pre : old_op_preconditions) {
+            	for (FactPair pre : old_pre[op_id]) {
                 	FactPair meta_pre = translate_into_meta_atom(pre, s_atom);
                 	if (meta_pre.var != -2) {
                     	copy_pre.push_back(meta_pre);
@@ -150,7 +143,7 @@ void PiMCompiledTask::setup_new_ops() {
             	}
             	op_pre.push_back(copy_pre);
             	vector<FactPair> copy_eff(new_eff);
-        		for (FactPair eff : old_op_effects) {
+        		for (FactPair eff : old_eff[op_id]) {
                 	FactPair meta_eff = translate_into_meta_atom(eff, s_atom);
                 	if (meta_eff.var != -2) {
                     	copy_eff.push_back(meta_eff);
@@ -204,6 +197,14 @@ void PiMCompiledTask::dump_compiled_task() {
         	cout << fact_names[eff.var][eff.value] << " , ";
         }
         cout << endl << endl;
+    }
+    cout << endl << "States: ";
+    for (size_t i = 0; i < parent->get_num_variables(); i++) {
+    	cout << parent->get_variable_name(i) << ", ";
+    }
+    cout << endl << "Compiled States: ";
+    for (size_t i = 0; i < get_num_variables(); i++) {
+    	cout << get_variable_name(i) << ", ";
     }
     cout << endl << "Init state: ";
     for (size_t i = 0; i < parent->get_initial_state_values().size(); i++) {
