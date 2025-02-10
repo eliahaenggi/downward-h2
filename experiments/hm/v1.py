@@ -14,11 +14,11 @@ ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = ["f2e6407f496de3f10e4504263a646502510a17e4"]
+REVISIONS = ["0075e6bf47f610a35e9d6303aed87e69bf4df4e7"]
 BUILDS = ["release"]
 CONFIG_NICKS = [
     ("astar-h2", ["--search", "astar(h2())"]),
-    ("astar-hm", ["--search", "astar(hm())"]),
+    ("astar-hmax-pi-m", ["--search", "astar(hmax(pi_m_compilation = True))"]),
 ]
 CONFIGS = [
     IssueConfig(
@@ -77,7 +77,7 @@ exp.add_fetcher(name='fetch')
 rev = REVISIONS[0]
 def make_comparison_tables():
     compared_configs = [
-        (f'{rev}-astar-hm', f'{rev}-astar-h2', 'Diff'),
+        (f'{rev}-astar-hmax_pi_m', f'{rev}-astar-h2', 'Diff'),
     ]
     report = ComparativeReport(
         compared_configs, attributes=exp.DEFAULT_TABLE_ATTRIBUTES)
@@ -87,7 +87,7 @@ def make_comparison_tables():
     report(exp.eval_dir, outfile)
 
 SCATTER_PLOT_PAIRS = [
-    ('astar-hm', 'astar-h2', rev, rev, attribute)
+    ('astar-hmax-pi-m', 'astar-h2', rev, rev, attribute)
     for attribute in ['total_time', 'memory']
 ]
 

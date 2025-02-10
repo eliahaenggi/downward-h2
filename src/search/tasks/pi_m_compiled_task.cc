@@ -9,12 +9,6 @@ namespace extra_tasks {
 
 PiMCompiledTask::PiMCompiledTask(const shared_ptr<AbstractTask> &parent) : DelegatingTask(parent) {
   	TaskProxy parent_proxy(*parent);
-    if (parent->get_num_axioms() > 0) {
-        ABORT("DomainAbstractedTask doesn't support axioms.");
-    }
-	if (task_properties::has_conditional_effects(parent_proxy)) {
-		ABORT("Pi^m Compilation doesn't support conditional effects.");
-	}
 
     store_old_ops();
     init_meta_atom_map();

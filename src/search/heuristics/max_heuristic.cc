@@ -123,8 +123,8 @@ public:
         add_option<bool>("pi_m_compilation", "", "False");
 
         document_language_support("action costs", "supported");
-        document_language_support("conditional effects", "supported");
-        document_language_support("axioms", "supported");
+        document_language_support("conditional effects", "supported (ignored for pi^m compilation)");
+        document_language_support("axioms", "supported (ignored for pi^m compilation)");
         document_property("admissible", "yes for tasks without axioms");
         document_property("consistent", "yes for tasks without axioms");
         document_property("safe", "yes");

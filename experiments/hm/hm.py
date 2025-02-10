@@ -21,7 +21,7 @@ ENV = project.LocalEnvironment(processes=2)
 
 CONFIGS = [
     ("astar-h2", ["--search", "astar(h2())"]),
-    ("astar-hm", ["--search", "astar(hm())"]),
+    ("astar-hmax-pi-m", ["--search", "astar(hmax(pi_m_compilation = True))"]),
 ]
 
 BUILD_OPTIONS = []
@@ -34,7 +34,7 @@ DRIVER_OPTIONS = [
 ]
 # Pairs of revision identifier and optional revision nick.
 REV_NICKS = [
-    ("40a2208d6190b36f020940d93ac07178ce08d3a0", "op_queue")
+    ("0075e6bf47f610a35e9d6303aed87e69bf4df4e7", "pi_m_compilation")
 ]
 
 ATTRIBUTES = [
