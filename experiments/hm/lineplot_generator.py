@@ -1,6 +1,8 @@
 import os
 import json
 import matplotlib.pyplot as plt
+import tikzplotlib
+import sys
 
 def plot_lineplots(experiment_name="hm-v1"):
 
@@ -69,8 +71,11 @@ def plot_lineplots(experiment_name="hm-v1"):
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "lineplot.png")
     plt.savefig(output_path)
+    print(f"Lineplot saved at {output_path}")
     plt.close()
 
-    print(f"Lineplot saved at {output_path}")
 
-plot_lineplots()
+
+if __name__ == "__main__":
+    experiment_name = sys.argv[1] if len(sys.argv) > 1 else "hm-v1"
+    plot_lineplots(experiment_name=experiment_name)
