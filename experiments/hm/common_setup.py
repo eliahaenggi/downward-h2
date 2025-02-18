@@ -372,8 +372,7 @@ class IssueExperiment(FastDownwardExperiment):
                 filter_algorithm=[algo1, algo2],
                 attributes=[attribute],
                 relative=relative,
-                get_category=lambda run1, run2: run1["domain"],
-                format="tex")
+                get_category=lambda run1, run2: run1["domain"])
             report(
                 self.eval_dir,
                 os.path.join(scatter_dir, rev1 + "-" + rev2, name))

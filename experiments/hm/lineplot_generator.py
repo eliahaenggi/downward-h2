@@ -1,8 +1,6 @@
 import os
 import json
 import matplotlib.pyplot as plt
-import tikzplotlib
-import sys
 
 def plot_lineplots(experiment_name="hm-v1"):
 
@@ -27,7 +25,7 @@ def plot_lineplots(experiment_name="hm-v1"):
 
     data_by_config = {}
 
-    for subdir in subdirs:
+    for subdir in all_subdirs:
         properties_file = os.path.join(subdir, "properties")
         static_properties_file = os.path.join(subdir, "static-properties")
 
@@ -41,11 +39,9 @@ def plot_lineplots(experiment_name="hm-v1"):
             total_time = properties_data.get("total_time")
             config = " ".join(static_data.get("component_options", []))
             revision = static_data.get("global_revision", "unknown_revision")
-            label = f"{config} ({revision})"
-
+            label = "astar-hmax-pi-m-compiled" if "hmax" in config else "astar-h2"
             if label not in data_by_config:
                 data_by_config[label] = []
-
             data_by_config[label].append(total_time)
 
     for label in data_by_config:
@@ -53,16 +49,27 @@ def plot_lineplots(experiment_name="hm-v1"):
         data_by_config[label] = sorted([time for time in data_by_config[label] if time is not None])
         data_by_config[label].extend([None] * unsolved_instances)
 
+
+    output_dir = os.path.join("data", experiment_name + "-eval", "lineplots/")
+    os.makedirs(output_dir, exist_ok=True)
+    txt_output_path = os.path.join(output_dir, "lineplot_data.txt")
+
     plt.figure(figsize=(12, 8))
 
-    for label, total_times in data_by_config.items():
-        solved_times = [time for time in total_times if time is not None]
-        percentages = [(i + 1) / len(total_times) * 100 for i in range(len(total_times))]
-        plt.plot(solved_times, percentages[:len(solved_times)], marker='o', linestyle='-', label=label)
+    with open(txt_output_path, mode='w') as txt_file:
+        txt_file.write("Configuration\tTotal Time\tPercentage Solved\n")
+
+        for label, total_times in data_by_config.items():
+            solved_times = [time for time in total_times if time is not None]
+            percentages = [(i + 1) / len(total_times) * 100 for i in range(len(total_times))]
+            plt.plot(solved_times, percentages[:len(solved_times)], linestyle='-', label=label)
+
+            for time, percentage in zip(solved_times, percentages[:len(solved_times)]):
+                txt_file.write(f"{label}\t{time}\t{percentage}\n")
 
     plt.xscale('log')
-    plt.title("Total Time vs Percentage of Solved Instances by Config/Revision", fontsize=14)
-    plt.xlabel("Total Time (s) [Log Scale]", fontsize=12)
+    plt.title("Total Time vs Percentage of Solved Instances by Implementation", fontsize=14)
+    plt.xlabel("Total Time (s)", fontsize=12)
     plt.ylabel("Percentage of Solved Instances (%)", fontsize=12)
     plt.grid(True, linestyle='-', alpha=0.7)
     plt.legend(fontsize=10, loc='best')
@@ -71,11 +78,8 @@ def plot_lineplots(experiment_name="hm-v1"):
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "lineplot.png")
     plt.savefig(output_path)
-    print(f"Lineplot saved at {output_path}")
     plt.close()
 
+    print(f"Lineplot saved at {output_path}")
 
-
-if __name__ == "__main__":
-    experiment_name = sys.argv[1] if len(sys.argv) > 1 else "hm-v1"
-    plot_lineplots(experiment_name=experiment_name)
+plot_lineplots()
