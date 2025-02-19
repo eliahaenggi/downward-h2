@@ -3,6 +3,7 @@
 import itertools
 import os
 import platform
+import re
 import subprocess
 import sys
 
@@ -126,9 +127,10 @@ def is_repo_base(path):
     return os.path.exists(os.path.join(path, ".git"))
 
 
+
 def is_running_on_cluster():
-    node = platform.node()
-    return node.endswith(".scicore.unibas.ch") or node.endswith(".cluster.bc2.ch")
+    return re.fullmatch(r"login12|ic[ab]\d\d", platform.node())
+
 
 
 def is_test_run():

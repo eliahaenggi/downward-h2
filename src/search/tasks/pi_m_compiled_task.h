@@ -6,21 +6,32 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
 
 class AbstractTask;
 
 namespace extra_tasks {
 class PiMCompiledTask : public tasks::DelegatingTask {
-	std::vector<int> domain_size;
-    std::map<std::pair<FactPair,FactPair>, int> meta_atom_map;
+
+    struct FactPairHash {
+        size_t operator()(const FactPair &fact) const {
+            return fact.var * 100003 + fact.value;
+        }
+    };
+	struct AtomPairHash {
+		std::size_t operator()(std::pair<FactPair, FactPair> pair) const {
+            const int MOD = 100003;
+            std::size_t h1 = pair.first.var * MOD + pair.first.value;
+            std::size_t h2 = pair.second.var * MOD + pair.second.value;
+            return h1 * MOD + h2;
+        }
+	};
+
+    std::unordered_map<std::pair<FactPair,FactPair>, int, AtomPairHash> meta_atom_map;
 	std::vector<int> initial_state_values;
 	std::vector<FactPair> goals;
-	std::vector<std::vector<std::string>> fact_names;
 
-    std::vector<std::vector<FactPair>> old_pre;
-    std::vector<std::vector<FactPair>> old_eff;
 
     struct MetaOperator {
     int parent_id;
@@ -38,24 +49,18 @@ class PiMCompiledTask : public tasks::DelegatingTask {
 public:
 	PiMCompiledTask(const std::shared_ptr<AbstractTask> &parent);
 
-    void store_old_ops();
     void init_meta_atom_map();
     void setup_init_and_goal_states();
-    void setup_new_ops();
+    void setup_meta_operators();
 
     FactPair translate_into_meta_atom(FactPair first_atom, FactPair second_atom);
     bool contradict_precondition(int op_id, FactPair s_atom);
     std::vector<FactPair> generate_meta_preconditions(int op_id);
     std::vector<FactPair> generate_meta_effects(int op_id, std::unordered_set<int> &effect_vars);
 
-    void dump_compiled_task();
-
     virtual int get_num_variables() const override;
-    virtual std::string get_variable_name(int var) const override;
     virtual int get_variable_domain_size(int var) const override;
     virtual int get_operator_cost(int index, bool is_axiom) const override;
-    virtual std::string get_fact_name(const FactPair &fact) const override;
-    virtual std::string get_operator_name(int index, bool is_axiom) const;
     virtual int get_num_operators() const override;
     virtual int get_num_operator_preconditions(int index, bool is_axiom) const override;
 	virtual FactPair get_operator_precondition(
@@ -71,11 +76,6 @@ public:
     virtual void convert_state_values_from_parent(
         std::vector<int> &values) const override;
 
-    struct FactPairHash {
-        size_t operator()(const FactPair &fact) const {
-            return fact.var * 100003 + fact.value;
-        }
-    };
 };
 
 
