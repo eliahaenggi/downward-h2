@@ -666,6 +666,7 @@ create_fast_downward_library(
         heuristics/htwo_heuristic
     DEPENDS
         task_properties
+
 )
 
 create_fast_downward_library(
@@ -673,6 +674,15 @@ create_fast_downward_library(
         HELP "Pi^m Compilation"
         SOURCES
         tasks/pi_m_compiled_task
+        DEPENDS
+        task_properties
+)
+
+create_fast_downward_library(
+        NAME dual_task
+        HELP "Dual Task for h^2"
+        SOURCES
+        tasks/dual_task
         DEPENDS
         task_properties
 )

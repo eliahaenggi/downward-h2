@@ -1,15 +1,13 @@
 #include "pi_m_compiled_task.h"
 
 #include "../task_utils/task_properties.h"
-
+#include "../utils/logging.h"
 
 
 using namespace std;
 namespace extra_tasks {
 
 PiMCompiledTask::PiMCompiledTask(const shared_ptr<AbstractTask> &parent) : DelegatingTask(parent) {
-  	TaskProxy parent_proxy(*parent);
-
     init_meta_atom_map();
     setup_init_and_goal_states();
 	setup_meta_operators();
@@ -22,27 +20,14 @@ void PiMCompiledTask::init_meta_atom_map() {
     int index = 1;
     for (int var = 0; var < num_var; ++var) {
         for (int val = 0; val < parent->get_variable_domain_size(var); ++val) {
-            string var_name = "v_" + to_string(var) + "=" + to_string(val);
             for (int value = val; value < parent->get_variable_domain_size(var); ++value) {
                 meta_atom_map[pair(FactPair(var, val), FactPair(var, value))] = index;
             	index++;
-                if (FactPair(var, val) ==  FactPair(var, value)) {
-                    //fact_names.push_back({"not " + var_name, var_name});
-                } else {
-                    string full_var_name = var_name + "," + to_string(var) + "=" + to_string(value);
-                    //fact_names.push_back({"not " + full_var_name, full_var_name});
-                }
         	}
             for (int variable = var + 1; variable < num_var; ++variable) {
         		for (int value = 0; value < parent->get_variable_domain_size(variable); ++value) {
                     meta_atom_map[pair(FactPair(var, val), FactPair(variable, value))] = index;
             		index++;
-                    if (FactPair(var, val) ==  FactPair(variable, value)) {
-                    	//fact_names.push_back({"not " + var_name, var_name});
-                    } else {
-                    	string full_var_name = var_name + "," + to_string(variable) + "=" + to_string(value);
-                    	//fact_names.push_back({"not " + full_var_name, full_var_name});
-                    }
         		}
     		}
         }
@@ -231,10 +216,10 @@ int PiMCompiledTask::get_num_operator_effect_conditions(
 void PiMCompiledTask::convert_state_values_from_parent(std::vector<int> &values) const {
     std::vector<int> new_values(initial_state_values.size(), 0);
 	new_values[0] = 1;
-	for (int i = 0; i < values.size(); ++i) {
+	for (size_t i = 0; i < values.size(); ++i) {
 		FactPair atom = FactPair(i, values[i]);
 		new_values[meta_atom_map.at(pair(atom, atom))] = 1;
-		for (int j = i + 1; j < values.size(); ++j) {
+		for (size_t j = i + 1; j < values.size(); ++j) {
 			FactPair second_atom = FactPair(j, values[j]);
 			new_values[meta_atom_map.at(pair(atom, second_atom))] = 1;
 		}

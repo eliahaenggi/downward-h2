@@ -166,8 +166,8 @@ class IssueExperiment(FastDownwardExperiment):
                           "gripper:prob01.pddl",
                           "gripper:prob02.pddl",
                           "satellite:p01-pfile1.pddl",
-                          "logistics00:probLOGISTICS-4-0.pddl",
                           "logistics00:probLOGISTICS-5-0.pddl",
+                          "logistics00:probLOGISTICS-6-0.pddl",
                           "movie:prob01.pddl",
                           "satellite:p01-pfile1.pddl"]
 
