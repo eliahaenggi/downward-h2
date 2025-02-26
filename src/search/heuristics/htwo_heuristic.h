@@ -18,6 +18,7 @@ class Options;
 
 namespace htwo_heuristic {
 class HTwoHeuristic : public Heuristic {
+    protected:
     using Tuple = std::vector<FactPair>;
 
     // parameters
@@ -36,7 +37,7 @@ class HTwoHeuristic : public Heuristic {
             return first == other.first && second == other.second;
         }
 
-    private:
+    protected:
         static std::size_t compute_hash(const FactPair &f1, const FactPair &f2) {
             const int MOD = 100003; // Prime
             std::size_t h1 = f1.var * MOD + f1.value;
@@ -44,7 +45,6 @@ class HTwoHeuristic : public Heuristic {
             return h1 * MOD + h2;
         }
     };
-
     struct PairHash {
         std::size_t operator()(const Pair &pair) const {
             return pair.hash;
@@ -58,6 +58,7 @@ class HTwoHeuristic : public Heuristic {
     };
 
     // data structures
+protected:
     std::unordered_map<Pair, int, PairHash> hm_table;
     std::deque<OperatorProxy> op_queue;
 

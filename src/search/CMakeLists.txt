@@ -680,9 +680,10 @@ create_fast_downward_library(
 
 create_fast_downward_library(
         NAME dual_task
-        HELP "Dual Task for h^2"
+        HELP "Dual Task translation for h^2"
         SOURCES
         tasks/dual_task
+        heuristics/dual_htwo_heuristic
         DEPENDS
         task_properties
 )
