@@ -32,6 +32,7 @@ class DualTask : public tasks::DelegatingTask {
     void setup_dual_operators();
 
     void print_task();
+    const std::vector<FactPair> get_goals() const;
 
     virtual int get_num_variables() const override;
     virtual int get_variable_domain_size(int var) const override;

@@ -46,7 +46,6 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
         return DEAD_END;
     }
     return h;
-
 }
 
 /*
@@ -198,7 +197,9 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
  * Evaluates tuple by computing the maximum heuristic value among all its partial tuples. Used for pre(op) and goal.
  */
 int HTwoHeuristic::eval(const Tuple &t) const {
+
     vector<Pair> pairs = generate_all_pairs(t);
+    log << pairs.size() << " pairs" << endl;
     int max = 0;
     for (Pair &pair : pairs) {
         int h = hm_table.at(pair);
@@ -290,9 +291,6 @@ vector<HTwoHeuristic::Pair> HTwoHeuristic::generate_all_pairs(const Tuple &base_
 void HTwoHeuristic::print_table() const {
     stringstream ss;
     for (auto entry : hm_table) {
-      	if (entry.second == INT_MAX) {
-        	continue;
-      	}
         Pair pair = entry.first;
         ss << "[" << pair.first.var << " = " << pair.first.value << ", " << pair.second.var << " = " << pair.second.value << "] = " << entry.second << endl;
     }

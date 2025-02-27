@@ -123,6 +123,10 @@ void DualTask::print_task() {
     cout << endl;
 }
 
+const std::vector<FactPair> DualTask::get_goals() const {
+	return goals;
+}
+
 
 int DualTask::get_num_variables() const {
     return strips_atom_map.size();

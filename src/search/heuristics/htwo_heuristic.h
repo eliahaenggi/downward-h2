@@ -23,7 +23,7 @@ class HTwoHeuristic : public Heuristic {
 
     // parameters
     const bool has_cond_effects;
-    const Tuple goals;
+    Tuple goals;
 
 
     struct Pair {
