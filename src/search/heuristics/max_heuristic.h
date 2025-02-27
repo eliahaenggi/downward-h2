@@ -15,11 +15,15 @@ using relaxation_heuristic::Proposition;
 using relaxation_heuristic::UnaryOperator;
 
 class HSPMaxHeuristic : public relaxation_heuristic::RelaxationHeuristic {
+    bool apply_pi_m_compilation;
     priority_queues::AdaptiveQueue<PropID> queue;
 
     void setup_exploration_queue();
     void setup_exploration_queue_state(const State &state);
     void relaxed_exploration();
+
+    std::shared_ptr<AbstractTask> get_pi_m_compiled_task(
+    bool pi_m_compilation, const std::shared_ptr<AbstractTask> &original_task);
 
     void enqueue_if_necessary(PropID prop_id, int cost) {
         assert(cost >= 0);
@@ -33,11 +37,12 @@ class HSPMaxHeuristic : public relaxation_heuristic::RelaxationHeuristic {
 protected:
     virtual int compute_heuristic(const State &ancestor_state) override;
 public:
-    HSPMaxHeuristic(
+    HSPMaxHeuristic(bool pi_m_compilation,
         tasks::AxiomHandlingType axioms,
         const std::shared_ptr<AbstractTask> &transform,
         bool cache_estimates, const std::string &description,
         utils::Verbosity verbosity);
+
 };
 }
 

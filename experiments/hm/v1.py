@@ -5,6 +5,8 @@ import os
 
 from lab.environments import LocalEnvironment, BaselSlurmEnvironment
 
+from downward.reports.compare import ComparativeReport
+
 import common_setup
 from common_setup import IssueConfig, IssueExperiment
 
@@ -12,11 +14,11 @@ ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = ["main"]
+REVISIONS = ["c0e267589c9d0772198a4b60cfc42e2ca6bbc1d9"]
 BUILDS = ["release"]
 CONFIG_NICKS = [
     ("astar-h2", ["--search", "astar(h2())"]),
-    ("astar-hm", ["--search", "astar(hm())"]),
+    ("astar-hmax-pi-m", ["--search", "astar(hmax(pi_m_compilation = True))"]),
 ]
 CONFIGS = [
     IssueConfig(
@@ -37,9 +39,9 @@ ENVIRONMENT = BaselSlurmEnvironment(
     # setup='export PATH=/scicore/soft/apps/CMake/3.23.1-GCCcore-11.3.0/bin:/scicore/soft/apps/libarchive/3.6.1-GCCcore-11.3.0/bin:/scicore/soft/apps/cURL/7.83.0-GCCcore-11.3.0/bin:/scicore/soft/apps/Python/3.10.4-GCCcore-11.3.0/bin:/scicore/soft/apps/OpenSSL/1.1/bin:/scicore/soft/apps/XZ/5.2.5-GCCcore-11.3.0/bin:/scicore/soft/apps/SQLite/3.38.3-GCCcore-11.3.0/bin:/scicore/soft/apps/Tcl/8.6.12-GCCcore-11.3.0/bin:/scicore/soft/apps/ncurses/6.3-GCCcore-11.3.0/bin:/scicore/soft/apps/bzip2/1.0.8-GCCcore-11.3.0/bin:/scicore/soft/apps/binutils/2.38-GCCcore-11.3.0/bin:/scicore/soft/apps/GCCcore/11.3.0/bin:/infai/sieverss/repos/bin:/infai/sieverss/local:/export/soft/lua_lmod/centos7/lmod/lmod/libexec:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:$PATH\nexport LD_LIBRARY_PATH=/scicore/soft/apps/libarchive/3.6.1-GCCcore-11.3.0/lib:/scicore/soft/apps/cURL/7.83.0-GCCcore-11.3.0/lib:/scicore/soft/apps/Python/3.10.4-GCCcore-11.3.0/lib:/scicore/soft/apps/OpenSSL/1.1/lib:/scicore/soft/apps/libffi/3.4.2-GCCcore-11.3.0/lib64:/scicore/soft/apps/GMP/6.2.1-GCCcore-11.3.0/lib:/scicore/soft/apps/XZ/5.2.5-GCCcore-11.3.0/lib:/scicore/soft/apps/SQLite/3.38.3-GCCcore-11.3.0/lib:/scicore/soft/apps/Tcl/8.6.12-GCCcore-11.3.0/lib:/scicore/soft/apps/libreadline/8.1.2-GCCcore-11.3.0/lib:/scicore/soft/apps/ncurses/6.3-GCCcore-11.3.0/lib:/scicore/soft/apps/bzip2/1.0.8-GCCcore-11.3.0/lib:/scicore/soft/apps/binutils/2.38-GCCcore-11.3.0/lib:/scicore/soft/apps/zlib/1.2.12-GCCcore-11.3.0/lib:/scicore/soft/apps/GCCcore/11.3.0/lib64',
 )
 """
-If your experiments sometimes have GCLIBX errors, you can use the 
-"setup" parameter instead of the "export" parameter above for setting 
-environment variables which "load" the right modules. ("module load" 
+If your experiments sometimes have GCLIBX errors, you can use the
+"setup" parameter instead of the "export" parameter above for setting
+environment variables which "load" the right modules. ("module load"
 doesn't do anything else than setting environment variables.)
 # paths obtained via:
 # module purge
@@ -72,8 +74,25 @@ exp.add_step('start', exp.start_runs)
 exp.add_step('parse', exp.parse)
 exp.add_fetcher(name='fetch')
 
+rev = REVISIONS[0]
+def make_comparison_tables():
+    compared_configs = [
+        (f'{rev}-astar-hmax_pi_m', f'{rev}-astar-h2', 'Diff'),
+    ]
+    report = ComparativeReport(
+        compared_configs, attributes=exp.DEFAULT_TABLE_ATTRIBUTES)
+    outfile = os.path.join(
+        exp.eval_dir,
+        f"{exp.name}-comparison.{report.output_format}")
+    report(exp.eval_dir, outfile)
+
+SCATTER_PLOT_PAIRS = [
+    ('astar-hmax-pi-m', 'astar-h2', rev, rev, attribute)
+    for attribute in ['total_time', 'memory']
+]
+
 exp.add_absolute_report_step()
-#exp.add_comparison_table_step()
-#exp.add_scatter_plot_step(relative=True, attributes=["total_time", "memory"])
+exp.add_step("make-comparison-tables", make_comparison_tables)
+exp.add_scatter_plot_step(relative=False, additional=SCATTER_PLOT_PAIRS)
 
 exp.run_steps()

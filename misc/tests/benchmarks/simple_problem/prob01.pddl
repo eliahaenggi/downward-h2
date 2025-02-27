@@ -1,0 +1,5 @@
+(define (problem finite-domain-task)
+  (:domain finite-domain)
+  (:objects a b - object)
+  (:init (value a 0) (value b 0))
+  (:goal (and (value a 1) (value b 1))))

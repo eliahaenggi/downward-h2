@@ -3,6 +3,7 @@
 import itertools
 import os
 import platform
+import re
 import subprocess
 import sys
 
@@ -126,9 +127,10 @@ def is_repo_base(path):
     return os.path.exists(os.path.join(path, ".git"))
 
 
+
 def is_running_on_cluster():
-    node = platform.node()
-    return node.endswith(".scicore.unibas.ch") or node.endswith(".cluster.bc2.ch")
+    return re.fullmatch(r"login12|ic[ab]\d\d", platform.node())
+
 
 
 def is_test_run():
@@ -158,7 +160,17 @@ class IssueConfig(object):
 class IssueExperiment(FastDownwardExperiment):
     """Subclass of FastDownwardExperiment with some convenience features."""
 
-    DEFAULT_TEST_SUITE = ["depot:p01.pddl", "gripper:prob01.pddl"]
+    DEFAULT_TEST_SUITE = ["depot:p01.pddl",
+                          "depot:p02.pddl",
+                          "driverlog:p02.pddl",
+                          "gripper:prob01.pddl",
+                          "gripper:prob02.pddl",
+                          "satellite:p01-pfile1.pddl",
+                          "logistics00:probLOGISTICS-5-0.pddl",
+                          "logistics00:probLOGISTICS-6-0.pddl",
+                          "movie:prob01.pddl",
+                          "satellite:p01-pfile1.pddl"]
+
 
     DEFAULT_TABLE_ATTRIBUTES = [
         "cost",
