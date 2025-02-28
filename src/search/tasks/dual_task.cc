@@ -101,23 +101,23 @@ void DualTask::print_task() {
     	cout << atom << " -> " << new_var << endl;
     }
 	cout << endl;
-    for (int i = 0; i < dual_operator_pre.size(); ++i) {
+    for (size_t i = 0; i < dual_operator_pre.size(); ++i) {
     	cout << "Operator " << i << endl << "pre: ";
-        for (int var = 0; var < dual_operator_pre[i].size(); ++var) {
+        for (size_t var = 0; var < dual_operator_pre[i].size(); ++var) {
         	cout << dual_operator_pre[i][var] << ", ";
         }
         cout << endl << "eff: ";
-        for (int var = 0; var < dual_operator_eff[i].size(); ++var) {
+        for (size_t var = 0; var < dual_operator_eff[i].size(); ++var) {
         	cout << dual_operator_eff[i][var] << ", ";
         }
         cout << endl;
     }
     cout << endl << "Initial state: " << endl;
-    for (int i = 0; i < initial_state_values.size(); ++i) {
+    for (size_t  i = 0; i < initial_state_values.size(); ++i) {
     	cout << i << "=" << initial_state_values[i] << ", ";
     }
     cout << endl << "Goals: " << endl;
-    for (int i = 0; i < goals.size(); ++i) {
+    for (size_t i = 0; i < goals.size(); ++i) {
     	cout << goals[i] << ", ";
     }
     cout << endl;

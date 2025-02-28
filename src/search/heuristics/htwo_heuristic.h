@@ -42,7 +42,7 @@ class HTwoHeuristic : public Heuristic {
             const int MOD = 100003; // Prime
             std::size_t h1 = f1.var * MOD + f1.value;
             std::size_t h2 = f2.var * MOD + f2.value;
-            return h1 * MOD + h2;
+            return h2 * MOD + h1;
         }
     };
     struct PairHash {
@@ -60,7 +60,7 @@ class HTwoHeuristic : public Heuristic {
     // data structures
 protected:
     std::unordered_map<Pair, int, PairHash> hm_table;
-    std::deque<OperatorProxy> op_queue;
+    std::deque<int> op_queue;
 
     // Auxiliary data structurs that speed up implementation (Could also be removed in case of memory issues)
     std::unordered_set<int> is_op_in_queue; // stores all operators that are in queue for constant time look up
@@ -68,7 +68,7 @@ protected:
     std::vector<std::vector<Pair>> partial_effect_cache;
     std::vector<std::vector<bool>> contradictions_cache; // Stores if variable is in effect of operator
     // Stores for each FactPair a list of operators where the fact occures in pre
-    mutable std::unordered_map<FactPair, std::vector<OperatorProxy>, FactPairHash> op_dict;
+    mutable std::unordered_map<FactPair, std::vector<int>, FactPairHash> op_dict;
 
 
     // Methods for initalizing data structures
@@ -76,6 +76,7 @@ protected:
     int check_in_initial_state(
     const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
     void init_operator_caches();
+    void init_operator_queue();
     bool is_op_applicable(Tuple pre) const;
 
     // Methods for updating table
