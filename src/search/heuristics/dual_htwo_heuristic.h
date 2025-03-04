@@ -20,7 +20,6 @@ protected:
 
 	std::shared_ptr<AbstractTask> dual_task;
 
-	std::unordered_map<Pair, int, PairHash> dual_hm_table;
 
 
 public:
@@ -28,6 +27,8 @@ public:
         const std::shared_ptr<AbstractTask> &transform,
         bool cache_estimates, const std::string &description,
         utils::Verbosity verbosity);
+
+    int create_hm_table(std::vector<int> init_values);
 
 
 };

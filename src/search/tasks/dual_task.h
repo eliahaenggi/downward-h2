@@ -6,7 +6,7 @@
 #include <memory>
 #include <string>
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <unordered_set>
 
 class AbstractTask;
@@ -18,7 +18,7 @@ class DualTask : public tasks::DelegatingTask {
             return fact.var * 100003 + fact.value;
         }
     };
-    std::map<FactPair, int> strips_atom_map;
+    std::unordered_map<FactPair, int, FactPairHash> strips_atom_map;
   	std::vector<int> initial_state_values;
 	std::vector<FactPair> goals;
 	std::vector<std::vector<FactPair>> dual_operator_pre;

@@ -20,34 +20,31 @@ DualHTwoHeuristic::DualHTwoHeuristic(
     utils::Verbosity verbosity)
     : HTwoHeuristic(transform, cache_estimates, description, verbosity) {
     dual_task = extra_tasks::build_dual_task(transform);
-    TaskProxy original_task_proxy = task_proxy;
-    std::vector<FactPair> original_goals = goals;
-
-    task_proxy = TaskProxy(*dual_task);
-	goals = static_pointer_cast<extra_tasks::DualTask>(dual_task)->get_goals();
-
+    log << "Initializied dual task" << endl;
     std::vector<int> values = dual_task->get_initial_state_values();
-    HTwoHeuristic::compute_heuristic(State(*dual_task, std::move(values)));
-    dual_hm_table = HTwoHeuristic::hm_table;
-	HTwoHeuristic::print_table();
 
-    task_proxy = original_task_proxy;
-	goals = original_goals;
+    TaskProxy original_task_proxy = HTwoHeuristic::task_proxy;
+    // Set task_proxy to dual_task only for creatomg hm_table
+    HTwoHeuristic::task_proxy = TaskProxy(*dual_task);
+    // Initialize op caches with dual task (constructor of htwo_heuristic uses original task)
+    HTwoHeuristic::init_operator_caches();
+    HTwoHeuristic::compute_heuristic(State(*dual_task, std::move(values)));
+    HTwoHeuristic::task_proxy = original_task_proxy;
 }
 
 
-
+// Removed goal check in the beginning as goals are detected rather fast anyways
 int DualHTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     State state = Heuristic::convert_ancestor_state(ancestor_state);
-    if (task_properties::is_goal_state(task_proxy, state)) {
-        return 0;
+    vector<int> state_values = state.get_unpacked_values();
+    dynamic_pointer_cast<extra_tasks::DualTask>(dual_task)->convert_state_values_from_parent(state_values);
+	vector<FactPair> state_atoms = {};
+    for (size_t i = 0; i < state_values.size(); i++) {
+    	if (state_values[i] == 1) {
+        	state_atoms.push_back(FactPair(i, state_values[i]));
+		}
     }
-    vector<FactPair> state_facts = task_properties::get_fact_pairs(state);
-    for (auto &fact : state_facts) {
-    	fact.value == 0 ? fact.value = 1 : fact.value = 0;
-    }
-    int h = eval(state_facts);
-    log << "h: " << h << endl;
+    int h = eval(state_atoms);
     if (h == INT_MAX) {
         return DEAD_END;
     }

@@ -90,7 +90,7 @@ int HTwoHeuristic::check_in_initial_state(
 * Sets up all auxiliary data structures concerning operators.
 */
 void HTwoHeuristic::init_operator_caches() {
-  	vector<int> empty_pre_op;
+  	vector<int> empty_pre_op = {};
     for (auto op : task_proxy.get_operators()) {
         if (op.get_preconditions().empty()) {
             empty_pre_op.push_back(op.get_id());
@@ -103,6 +103,9 @@ void HTwoHeuristic::init_operator_caches() {
 			op_dict[FactPair(i, j)] = empty_pre_op;
         }
     }
+    contradictions_cache = {};
+    precondition_cache = {};
+    partial_effect_cache = {};
     contradictions_cache.resize(task_proxy.get_operators().size(), std::vector<bool>(task_proxy.get_variables().size(), false));
 	for (OperatorProxy op : task_proxy.get_operators()) {
         // Setup precondition cache
@@ -215,7 +218,6 @@ int HTwoHeuristic::eval(const Tuple &t) const {
     int max = 0;
     for (Pair &pair : pairs) {
         int h = hm_table.at(pair);
-
         if (h > max) {
         	if (h == INT_MAX) {
             	return INT_MAX;

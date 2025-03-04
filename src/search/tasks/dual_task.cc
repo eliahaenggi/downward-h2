@@ -10,7 +10,7 @@ DualTask::DualTask(const std::shared_ptr<AbstractTask> &parent) : DelegatingTask
     setup_init_and_goal_states();
     setup_dual_operators();
 
-    print_task();
+    //print_task();
 }
 
 void DualTask::init_strips_variables() {
@@ -33,9 +33,11 @@ void DualTask::setup_init_and_goal_states() {
     }
 
 	for (const auto& [atom, i] : strips_atom_map) {
+        // Add to goal if atom not present in initial state
         if (init_state_values[atom.var] != atom.value) {
         	goals.push_back(FactPair(i, 1));
         }
+        // Add to initial state if atom not present in goal
         if (goal_facts.find(atom) == goal_facts.end()) {
         	initial_state_values[i] = 1;
         }
@@ -45,13 +47,13 @@ void DualTask::setup_init_and_goal_states() {
 void DualTask::setup_dual_operators() {
 	dual_operator_pre = {};
     dual_operator_eff = {};
+    dual_operator_pre.resize(parent->get_num_operators());
+    dual_operator_eff.resize(parent->get_num_operators());
     for (int op_id = 0; op_id < parent->get_num_operators(); ++op_id) {
-        dual_operator_pre.push_back({});
-        dual_operator_eff.push_back({});
         for (int var = 0; var < parent->get_num_operator_preconditions(op_id, false); ++var) {
 			FactPair pre = parent->get_operator_precondition(op_id, var, false);
 			for (int val = 0; val < parent->get_variable_domain_size(pre.var); ++val) {
-                // Add precondition contradictions to effects
+                // Add precondition contradictions to effects (Contradictions add as delete effects)
 				if (pre.value != val) {
                 	dual_operator_eff[op_id].push_back(FactPair(strips_atom_map[FactPair(pre.var, val)], 1));
                 }
@@ -61,6 +63,7 @@ void DualTask::setup_dual_operators() {
 			FactPair eff = parent->get_operator_effect(op_id, var, false);
             FactPair new_eff = FactPair(strips_atom_map[eff], 1);
             if (find(dual_operator_eff[op_id].begin(), dual_operator_eff[op_id].end(), new_eff) == dual_operator_eff[op_id].end()) {
+                // Add unchanged effects to new dual effects
             	dual_operator_eff[op_id].push_back(new_eff);
             }
 			for (int val = 0; val < parent->get_variable_domain_size(eff.var); ++val) {
@@ -181,13 +184,12 @@ int DualTask::get_num_operator_effect_conditions(
 }
 
 void DualTask::convert_state_values_from_parent(std::vector<int> &values) const {
-	for (size_t i = 0; i < strips_atom_map.size(); ++i) {
-		if (values[i] == 0) {
-        	values[i] = 1;
-        } else {
-            values[i] = 0;
-        }
+    std::vector<int> new_values(strips_atom_map.size(), 1);
+	for (size_t i = 0; i < values.size(); ++i) {
+		FactPair atom = FactPair(i, values[i]);
+		new_values[strips_atom_map.at(atom)] = 0;
 	}
+	values = std::move(new_values);
 }
 
 std::shared_ptr<AbstractTask> build_dual_task(
