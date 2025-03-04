@@ -14,11 +14,10 @@ ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = ["c0e267589c9d0772198a4b60cfc42e2ca6bbc1d9"]
+REVISIONS = ["e507ee3e35d419252e99ea0e5beefdc89eeccf8f", "49807d70d1d6c8db45a78e80dce7dfec0b51988d"]
 BUILDS = ["release"]
 CONFIG_NICKS = [
-    ("astar-h2", ["--search", "astar(h2())"]),
-    ("astar-hmax-pi-m", ["--search", "astar(hmax(pi_m_compilation = True))"]),
+    ("astar-h2", ["--search", "astar(h2())"])
 ]
 CONFIGS = [
     IssueConfig(
@@ -77,7 +76,7 @@ exp.add_fetcher(name='fetch')
 rev = REVISIONS[0]
 def make_comparison_tables():
     compared_configs = [
-        (f'{rev}-astar-hmax_pi_m', f'{rev}-astar-h2', 'Diff'),
+        (f'{rev}-astar-h2-new', f'{rev}-astar-h2-old', 'Diff'),
     ]
     report = ComparativeReport(
         compared_configs, attributes=exp.DEFAULT_TABLE_ATTRIBUTES)

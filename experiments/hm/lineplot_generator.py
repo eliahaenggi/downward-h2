@@ -82,4 +82,56 @@ def plot_lineplots(experiment_name="hm-v1"):
 
     print(f"Lineplot saved at {output_path}")
 
-plot_lineplots()
+
+
+def plot_lineplots_from_file(txt_file_path="lineplot_data.txt"):
+    data_by_config = {}
+
+    with open(txt_file_path, "r") as txt_file:
+        lines = txt_file.readlines()
+
+    for line in lines[1:]:
+
+        parts = line.strip().split("\t")
+        if len(parts) != 3:
+            continue
+        config, total_time, percentage_solved = parts
+        total_time = float(total_time)
+        percentage_solved = float(percentage_solved)
+
+        if config not in data_by_config:
+            data_by_config[config] = {'total_time': [], 'solved_instances': []}
+
+        data_by_config[config]['total_time'].append(total_time)
+        data_by_config[config]['solved_instances'].append(percentage_solved * 18.27)
+
+    plt.figure(figsize=(12, 8))
+
+    for config, data in data_by_config.items():
+        label = config
+        # dirty fix for hm and h2
+        if label == "astar-h2":
+            label = r"$A^* \text{ with } h^2$"
+        elif label == "astar-hm":
+            label = r"$A^* \text{ with } h^m$"
+        plt.plot(data['total_time'], data['solved_instances'], linestyle='-', label=label)
+
+    plt.xscale('log')
+    plt.title("Total Time vs Number of Solved Instances by Implementation", fontsize=14)
+    plt.xlabel("Total Time (s)", fontsize=12)
+    plt.ylabel("Number of Solved Instances", fontsize=12)
+    plt.grid(True, linestyle='-', alpha=0.7)
+    plt.legend(fontsize=10, loc='best')
+
+    output_dir = "lineplots/"
+    os.makedirs(output_dir, exist_ok=True)
+    output_path = os.path.join(output_dir, "lineplot_absolute_values.png")
+    plt.savefig(output_path)
+    plt.close()
+
+    print(f"Lineplot saved at {output_path}")
+
+
+
+plot_lineplots_from_file("lineplot_data.txt")
+#plot_lineplots()
