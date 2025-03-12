@@ -24,12 +24,16 @@ DualHTwoHeuristic::DualHTwoHeuristic(
     std::vector<int> values = dual_task->get_initial_state_values();
 
     TaskProxy original_task_proxy = HTwoHeuristic::task_proxy;
+    vector<FactPair> original_goals = HTwoHeuristic::goals;
     // Set task_proxy to dual_task only for creatomg hm_table
     HTwoHeuristic::task_proxy = TaskProxy(*dual_task);
+    goals = {};
     // Initialize op caches with dual task (constructor of htwo_heuristic uses original task)
     HTwoHeuristic::init_operator_caches();
     HTwoHeuristic::compute_heuristic(State(*dual_task, std::move(values)));
+    print_table();
     HTwoHeuristic::task_proxy = original_task_proxy;
+    goals = original_goals;
 }
 
 
@@ -40,9 +44,9 @@ int DualHTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     dynamic_pointer_cast<extra_tasks::DualTask>(dual_task)->convert_state_values_from_parent(state_values);
 	vector<FactPair> state_atoms = {};
     for (size_t i = 0; i < state_values.size(); i++) {
-    	if (state_values[i] == 1) {
+        if (state_values[i] == 1) {
         	state_atoms.push_back(FactPair(i, state_values[i]));
-		}
+        }
     }
     int h = eval(state_atoms);
     if (h == INT_MAX) {

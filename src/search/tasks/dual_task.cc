@@ -53,8 +53,10 @@ void DualTask::setup_dual_operators() {
         for (int var = 0; var < parent->get_num_operator_preconditions(op_id, false); ++var) {
 			FactPair pre = parent->get_operator_precondition(op_id, var, false);
 			for (int val = 0; val < parent->get_variable_domain_size(pre.var); ++val) {
-                // Add precondition contradictions to effects (Contradictions add as delete effects)
-				if (pre.value != val) {
+                // Add precondition contradictions to effects (Contradictions act as delete effects)
+				if (pre.value == val) {
+                	dual_operator_eff[op_id].push_back(FactPair(strips_atom_map[FactPair(pre.var, val)], 0));
+                } else {
                 	dual_operator_eff[op_id].push_back(FactPair(strips_atom_map[FactPair(pre.var, val)], 1));
                 }
 			}
