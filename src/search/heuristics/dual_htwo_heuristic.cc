@@ -31,7 +31,6 @@ DualHTwoHeuristic::DualHTwoHeuristic(
     // Initialize op caches with dual task (constructor of htwo_heuristic uses original task)
     HTwoHeuristic::init_operator_caches();
     HTwoHeuristic::compute_heuristic(State(*dual_task, std::move(values)));
-    print_table();
     HTwoHeuristic::task_proxy = original_task_proxy;
     goals = original_goals;
 }

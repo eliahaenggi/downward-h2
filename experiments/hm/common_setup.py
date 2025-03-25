@@ -370,11 +370,13 @@ class IssueExperiment(FastDownwardExperiment):
             print("Make scatter plot for", name)
             algo1 = get_algo_nick(rev1, config_nick)
             algo2 = get_algo_nick(rev2, config_nick if config_nick2 is None else config_nick2)
-            report = ScatterPlotReport(
+            report = (ScatterPlotReport(
                 filter_algorithm=[algo1, algo2],
                 attributes=[attribute],
                 relative=relative,
-                get_category=lambda run1, run2: run1["domain"])
+                get_category=lambda run1, run2: run1["domain"],
+                format="tex")
+            )
             report(
                 self.eval_dir,
                 os.path.join(scatter_dir, rev1 + "-" + rev2, name))
@@ -395,3 +397,4 @@ class IssueExperiment(FastDownwardExperiment):
 
     def add_archive_eval_dir_step(self, archive_path):
         archive.add_archive_eval_dir_step(self, archive_path)
+

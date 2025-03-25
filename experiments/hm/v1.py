@@ -14,12 +14,11 @@ ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = ["e507ee3e35d419252e99ea0e5beefdc89eeccf8f"]
+REVISIONS = ["803da3c8a76263475a9493fc2221e8b786f7ea31"]
 BUILDS = ["release"]
 CONFIG_NICKS = [
-    ("astar-h2", ["--search", "astar(h2())"]),
-    ("astar-dualh2", ["--search", "astar(dualh2())"]),
-    ("astar-blind", ["--search", "astar(blind())"])
+    ("astar-pi-m", ["--search", "astar(hmax(pi_m_compilation=True))"]),
+    ("astar-h2", ["--search", "astar(h2())"])
 ]
 CONFIGS = [
     IssueConfig(
@@ -53,6 +52,11 @@ doesn't do anything else than setting environment variables.)
 # echo $LD_LIBRARY_PATH
 """
 
+def add_translator_preprocessor_time(run):
+    if "total_time" in run and "search_time" in run:
+        run["preprocessing_time"] = run["total_time"] - run["search_time"]
+    return True
+
 if common_setup.is_test_run():
     SUITE = IssueExperiment.DEFAULT_TEST_SUITE
     ENVIRONMENT = LocalEnvironment(processes=4)
@@ -73,12 +77,12 @@ exp.add_parser(exp.PLANNER_PARSER)
 exp.add_step('build', exp.build)
 exp.add_step('start', exp.start_runs)
 exp.add_step('parse', exp.parse)
-exp.add_fetcher(name='fetch')
+exp.add_fetcher(name='fetch', filter=add_translator_preprocessor_time)
 
 rev = REVISIONS[0]
 def make_comparison_tables():
     compared_configs = [
-        (f'astar-h2', f'astar-dualh2', 'astar-blind', 'Diff'),
+        (f'astar-pi-m', f'astar-h2', 'Diff'),
     ]
     report = ComparativeReport(
         compared_configs, attributes=exp.DEFAULT_TABLE_ATTRIBUTES)
@@ -88,12 +92,14 @@ def make_comparison_tables():
     report(exp.eval_dir, outfile)
 
 SCATTER_PLOT_PAIRS = [
-    ('astar-h2', 'astar-dualh2' , 'astar-blind', rev, rev, attribute)
-    for attribute in ['total_time', 'memory']
+    ('astar-pi-m', 'astar-h2', rev, rev, attribute)
+    for attribute in ['total_time', 'memory', 'preprocessing_time']
 ]
 
-exp.add_absolute_report_step()
+
+exp.add_absolute_report_step(filter=add_translator_preprocessor_time)
 exp.add_step("make-comparison-tables", make_comparison_tables)
 exp.add_scatter_plot_step(relative=False, additional=SCATTER_PLOT_PAIRS)
+
 
 exp.run_steps()
