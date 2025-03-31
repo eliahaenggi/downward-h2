@@ -64,7 +64,7 @@ protected:
 
     // Auxiliary data structurs that speed up implementation (Could also be removed in case of memory issues)
     std::unordered_set<int> is_op_in_queue; // stores all operators that are in queue for constant time look up
-    std::vector<Tuple> precondition_cache;
+    std::vector<std::vector<Pair>> partial_precondition_cache;
     std::vector<std::vector<Pair>> partial_effect_cache;
     std::vector<std::vector<bool>> contradictions_cache; // Stores if variable is in effect of operator
     // Stores for each FactPair a list of operators where the fact occures in pre
@@ -82,7 +82,7 @@ protected:
     // Methods for updating table
     void update_hm_table();
     void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
-    int eval(const Tuple &t) const;
+    int eval(const std::vector<Pair> &pairs) const;
     int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
 
     int update_hm_entry(const Pair &p, int val);
