@@ -67,6 +67,7 @@ protected:
     std::vector<Tuple> precondition_cache;
     std::vector<std::vector<Pair>> partial_effect_cache;
     std::vector<std::vector<bool>> contradictions_cache; // Stores if variable is in effect of operator
+    mutable std::vector<int> op_cost;
     // Stores for each FactPair a list of operators where the fact occures in pre
     mutable std::unordered_map<FactPair, std::vector<int>, FactPairHash> op_dict;
 
@@ -77,7 +78,7 @@ protected:
     const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
     void init_operator_caches();
     void init_operator_queue();
-    bool is_op_applicable(Tuple pre) const;
+    bool is_op_applicable(int op_id) const;
 
     // Methods for updating table
     void update_hm_table();
@@ -86,7 +87,7 @@ protected:
     int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
 
     int update_hm_entry(const Pair &p, int val);
-    void add_operator_to_queue(const FactPair &f);
+    void add_operator_to_queue(const Pair &p, int val);
 
 	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
 
