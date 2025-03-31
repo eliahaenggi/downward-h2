@@ -42,8 +42,7 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     init_hm_table(state_facts);
     init_operator_queue();
     update_hm_table();
-    vector<Pair> goal_pairs = generate_all_pairs(goals);
-    int h = eval(goal_pairs);
+    int h = eval(goals);
     if (h == INT_MAX) {
         return DEAD_END;
     }
@@ -105,14 +104,14 @@ void HTwoHeuristic::init_operator_caches() {
         }
     }
     contradictions_cache = {};
-    partial_precondition_cache = {};
+    precondition_cache = {};
     partial_effect_cache = {};
     contradictions_cache.resize(task_proxy.get_operators().size(), std::vector<bool>(task_proxy.get_variables().size(), false));
 	for (OperatorProxy op : task_proxy.get_operators()) {
         // Setup precondition cache
         Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
-    	partial_precondition_cache.push_back(generate_all_pairs(preconditions));
+    	precondition_cache.push_back(preconditions);
 
         // Setup op_dict
         for (auto pre : preconditions) {
@@ -138,7 +137,7 @@ void HTwoHeuristic::init_operator_caches() {
 void HTwoHeuristic::init_operator_queue() {
 	for (OperatorProxy op : task_proxy.get_operators()) {
     	// Initialize operator queue with applicable operators
-        if (is_op_applicable(task_properties::get_fact_pairs(op.get_preconditions()))) {
+        if (is_op_applicable(precondition_cache[op.get_id()])) {
             op_queue.push_back(op.get_id());
             is_op_in_queue.insert(op.get_id());
         }
@@ -167,7 +166,7 @@ void HTwoHeuristic::update_hm_table() {
          op_queue.pop_front();
          is_op_in_queue.erase(op.get_id());
 
-         int c1 = eval(partial_precondition_cache[op.get_id()]);
+         int c1 = eval(precondition_cache[op.get_id()]);
          if (c1 == INT_MAX) {
              continue;
          }
@@ -186,7 +185,7 @@ void HTwoHeuristic::update_hm_table() {
  * Extends given partial effect by adding additional fact.
  */
 void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int eval) {
-	Tuple pre = task_properties::get_fact_pairs(op.get_preconditions());
+	Tuple pre = precondition_cache[op.get_id()];
     int num_variables = task_proxy.get_variables().size();
     for (int i = 0; i < num_variables; ++i) {
         if (contradictions_cache[op.get_id()][i] || f.var == i) {
@@ -214,9 +213,10 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
 /*
  * Evaluates tuple by computing the maximum heuristic value among all its partial tuples. Used for pre(op) and goal.
  */
-int HTwoHeuristic::eval(const vector<Pair> &pairs) const {
+int HTwoHeuristic::eval(const Tuple &t) const {
+    vector<Pair> pairs = generate_all_pairs(t);
     int max = 0;
-    for (const Pair &pair : pairs) {
+    for (Pair &pair : pairs) {
         int h = hm_table.at(pair);
         if (h > max) {
         	if (h == INT_MAX) {
