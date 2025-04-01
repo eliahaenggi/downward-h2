@@ -42,12 +42,13 @@ int DualHTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     vector<int> state_values = state.get_unpacked_values();
     dynamic_pointer_cast<extra_tasks::DualTask>(dual_task)->convert_state_values_from_parent(state_values);
 	vector<FactPair> state_atoms = {};
+    unordered_set<Pair, PairHash> critical_entries;
     for (size_t i = 0; i < state_values.size(); i++) {
         if (state_values[i] == 1) {
         	state_atoms.push_back(FactPair(i, state_values[i]));
         }
     }
-    int h = eval(state_atoms);
+    int h = eval(state_atoms, critical_entries);
     if (h == INT_MAX) {
         return DEAD_END;
     }

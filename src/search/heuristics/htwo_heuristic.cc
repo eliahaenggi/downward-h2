@@ -42,7 +42,8 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     init_hm_table(state_facts);
     init_operator_queue();
     update_hm_table();
-    int h = eval(goals);
+    unordered_set<Pair, PairHash> empty_vector;
+    int h = eval(goals, empty_vector);
     if (h == INT_MAX) {
         return DEAD_END;
     }
@@ -103,18 +104,16 @@ void HTwoHeuristic::init_operator_caches() {
 			op_dict[FactPair(i, j)] = empty_pre_op;
         }
     }
-    contradictions_cache = {};
-    op_cost = {};
     precondition_cache = {};
     partial_effect_cache = {};
     contradictions_cache.assign(task_proxy.get_operators().size(), std::vector<bool>(task_proxy.get_variables().size(), false));
-    op_cost.resize(task_proxy.get_operators().size(), INT_MAX);
+    op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
+
 	for (OperatorProxy op : task_proxy.get_operators()) {
         // Setup precondition cache
         Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
     	precondition_cache.push_back(preconditions);
-
         // Setup op_dict
         for (auto pre : preconditions) {
         	op_dict[pre].push_back(op.get_id());
@@ -132,12 +131,14 @@ void HTwoHeuristic::init_operator_caches() {
             contradictions_cache[op.get_id()][eff.get_fact().get_pair().var] = true;
     	}
     	sort(effects.begin(), effects.end());
-		partial_effect_cache.push_back(generate_all_pairs(effects));
+        vector<Pair> partial_effects = generate_all_pairs(effects);
+		partial_effect_cache.push_back(partial_effects);
     }
 }
 
 void HTwoHeuristic::init_operator_queue() {
   	op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
+    critical_entries.assign(task_proxy.get_operators().size(), unordered_set<Pair, PairHash>());
 	for (OperatorProxy op : task_proxy.get_operators()) {
     	// Initialize operator queue with applicable operators
         if (is_op_applicable(op.get_id())) {
@@ -145,6 +146,14 @@ void HTwoHeuristic::init_operator_queue() {
             is_op_in_queue.insert(op.get_id());
             op_cost[op.get_id()] = 0;
         }
+
+    	unordered_set<Pair, PairHash> filtered_entries;
+    	for (auto entry : generate_all_pairs(precondition_cache[op.get_id()])) {
+        	if (hm_table.at(entry) != 0) {
+            	filtered_entries.insert(entry);
+        	}
+        }
+    	critical_entries[op.get_id()] = filtered_entries;
     }
 }
 
@@ -218,16 +227,22 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
 /*
  * Evaluates tuple by computing the maximum heuristic value among all its partial tuples. Used for pre(op) and goal.
  */
-int HTwoHeuristic::eval(const Tuple &t) const {
+int HTwoHeuristic::eval(const Tuple &t, unordered_set<Pair, PairHash>& critical_entries) const {
     vector<Pair> pairs = generate_all_pairs(t);
     int max = 0;
+    critical_entries.clear();
     for (Pair &pair : pairs) {
         int h = hm_table.at(pair);
         if (h > max) {
-        	if (h == INT_MAX) {
-            	return INT_MAX;
+            if (h == INT_MAX) {
+                critical_entries.clear();
+                return INT_MAX;
             }
-        	max = h;
+            max = h;
+            critical_entries.clear();
+            critical_entries.insert(pair);
+        } else if (h == max) {
+            critical_entries.insert(pair);
         }
     }
     return max;
@@ -246,12 +261,9 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
                   return INT_MAX;
           	}
             // extend_fact ∈ pre
-        	return eval;
+        	continue;
         }
         Pair key = (fact0.var < extend_fact.var) ? Pair(fact0, extend_fact) : Pair(extend_fact, fact0);
-        if (hm_table.find(key) == hm_table.end()) {
-        	log << "Key not found" << key.first << " " << key.second << endl;
-        }
         int h = hm_table.at(key);
 
         if (h > max) {
@@ -269,18 +281,34 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
  */
 void HTwoHeuristic::add_operator_to_queue(const Pair &p, int val) {
     std::vector<int> operator_ids = op_dict[p.first];
-
-    if (p.second.var != -1) {
-        operator_ids.insert(operator_ids.end(), op_dict[p.second].begin(), op_dict[p.second].end());
-    }
+    //log << p.first << " " << p.second << " = " << val << endl;
 
     for (int op_id : operator_ids) {
+        auto it = critical_entries[op_id].find(p);
+        if (it != critical_entries[op_id].end()) {
+            critical_entries[op_id].erase(it);
+            unordered_set<Pair, PairHash> new_critical_entries;
+            //log << "Critical entries " << critical_entries[op_id].size() << endl;
+            if (critical_entries[op_id].empty()) {
+                op_cost[op_id] = eval(precondition_cache[op_id], new_critical_entries);
+				//log << "Op " << op_id << " new eval " << op_cost[op_id] << " with " << new_critical_entries.size() << " critical entries" << endl;
+                critical_entries[op_id] = new_critical_entries;
+            }
+        }
         if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
             op_queue.push_back(op_id);
             is_op_in_queue.insert(op_id);
         }
-        if (op_cost[op_id] > val) {
-        	op_cost[op_id] = eval(precondition_cache[op_id]);
+    }
+
+    if (p.second.var == -1) {
+        return;
+    }
+    operator_ids = op_dict[p.second];
+    for (int op_id : operator_ids) {
+        if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
+            op_queue.push_back(op_id);
+            is_op_in_queue.insert(op_id);
         }
     }
 }
