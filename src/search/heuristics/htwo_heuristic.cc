@@ -50,6 +50,55 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     return h;
 }
 
+
+/**
+* Sets up all auxiliary data structures concerning operators.
+*/
+void HTwoHeuristic::init_operator_caches() {
+  	vector<int> empty_pre_op = {};
+    for (auto op : task_proxy.get_operators()) {
+        if (op.get_preconditions().empty()) {
+            empty_pre_op.push_back(op.get_id());
+        }
+    }
+    int num_variables = task_proxy.get_variables().size();
+    for (int i = 0; i < num_variables; ++i) {
+        int domain1_size = task_proxy.get_variables()[i].get_domain_size();
+        for (int j = 0; j < domain1_size; ++j) {
+			op_dict[FactPair(i, j)] = empty_pre_op;
+        }
+    }
+    precondition_cache = {};
+    partial_effect_cache = {};
+    effect_conflict_cache.assign(task_proxy.get_operators().size(), std::vector<bool>(task_proxy.get_variables().size(), false));
+
+	for (OperatorProxy op : task_proxy.get_operators()) {
+        // Setup precondition cache
+        Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
+    	sort(preconditions.begin(), preconditions.end());
+    	precondition_cache.push_back(preconditions);
+        // Setup op_dict
+        for (auto pre : preconditions) {
+        	op_dict[pre].push_back(op.get_id());
+        }
+
+        // Check for operators without preconditions -> automatically add to op_dict
+        if (preconditions.empty()) {
+            empty_pre_op.push_back(op.get_id());
+        }
+
+        // Setup partial effect cache
+    	Tuple effects;
+    	for (EffectProxy eff : op.get_effects()) {
+        	effects.push_back(eff.get_fact().get_pair());
+            effect_conflict_cache[op.get_id()][eff.get_fact().get_pair().var] = true;
+    	}
+    	sort(effects.begin(), effects.end());
+        vector<Pair> partial_effects = generate_all_pairs(effects);
+		partial_effect_cache.push_back(partial_effects);
+    }
+}
+
 /*
  * Initializes h^m table.
  * If entry is contained in init state facts assigns 0, and infinity otherwise.
@@ -87,66 +136,11 @@ int HTwoHeuristic::check_in_initial_state(
     return (found_first && found_second) ? 0 : INT_MAX;
 }
 
-/**
-* Sets up all auxiliary data structures concerning operators.
-*/
-void HTwoHeuristic::init_operator_caches() {
-  	vector<int> empty_pre_op = {};
-    for (auto op : task_proxy.get_operators()) {
-        if (op.get_preconditions().empty()) {
-            empty_pre_op.push_back(op.get_id());
-        }
-    }
-    int num_variables = task_proxy.get_variables().size();
-    for (int i = 0; i < num_variables; ++i) {
-        int domain1_size = task_proxy.get_variables()[i].get_domain_size();
-        for (int j = 0; j < domain1_size; ++j) {
-			op_dict[FactPair(i, j)] = empty_pre_op;
-        }
-    }
-    precondition_cache = {};
-    partial_effect_cache = {};
-    contradictions_cache.assign(task_proxy.get_operators().size(), std::vector<bool>(task_proxy.get_variables().size(), false));
-    op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
-
-	for (OperatorProxy op : task_proxy.get_operators()) {
-        // Setup precondition cache
-        Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
-    	sort(preconditions.begin(), preconditions.end());
-    	precondition_cache.push_back(preconditions);
-        // Setup op_dict
-        for (auto pre : preconditions) {
-        	op_dict[pre].push_back(op.get_id());
-        }
-
-        // Check for operators without preconditions -> automatically add to op_dict
-        if (preconditions.empty()) {
-            empty_pre_op.push_back(op.get_id());
-        }
-
-        // Setup partial effect cache
-    	Tuple effects;
-    	for (EffectProxy eff : op.get_effects()) {
-        	effects.push_back(eff.get_fact().get_pair());
-            contradictions_cache[op.get_id()][eff.get_fact().get_pair().var] = true;
-    	}
-    	sort(effects.begin(), effects.end());
-        vector<Pair> partial_effects = generate_all_pairs(effects);
-		partial_effect_cache.push_back(partial_effects);
-    }
-}
 
 void HTwoHeuristic::init_operator_queue() {
   	op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
     critical_entries.assign(task_proxy.get_operators().size(), unordered_set<Pair, PairHash>());
 	for (OperatorProxy op : task_proxy.get_operators()) {
-    	// Initialize operator queue with applicable operators
-        if (is_op_applicable(op.get_id())) {
-            op_queue.push_back(op.get_id());
-            is_op_in_queue.insert(op.get_id());
-            op_cost[op.get_id()] = 0;
-        }
-
     	unordered_set<Pair, PairHash> filtered_entries;
     	for (auto entry : generate_all_pairs(precondition_cache[op.get_id()])) {
         	if (hm_table.at(entry) != 0) {
@@ -154,20 +148,12 @@ void HTwoHeuristic::init_operator_queue() {
         	}
         }
     	critical_entries[op.get_id()] = filtered_entries;
-    }
-}
-
-/*
- * Check if op is applicable in initial state. Only works for initial state as it only considers single atom table entries.
- */
-bool HTwoHeuristic::is_op_applicable(int op_id) const {
-  	const vector<FactPair> &pre = precondition_cache[op_id];
-	for (auto fact : pre) {
-    	if (hm_table.at(Pair(fact, FactPair(-1, -1))) != 0) {
-        	return false;
+        if (filtered_entries.size() == 0) {
+        	op_queue.push_back(op.get_id());
+            is_op_in_queue.insert(op.get_id());
+            op_cost[op.get_id()] = 0;
         }
     }
-    return true;
 }
 
 
@@ -180,13 +166,9 @@ void HTwoHeuristic::update_hm_table() {
          op_queue.pop_front();
          is_op_in_queue.erase(op.get_id());
          int c1 = op_cost[op.get_id()];
-         //log << "Op " << op.get_id() << " size " << critical_entries[op.get_id()].size() << endl;
 	     if (critical_entries[op.get_id()].size() == 0) {
             unordered_set<Pair, PairHash> new_critical_entries;
          	c1 = eval(precondition_cache[op.get_id()], new_critical_entries);
-            if (c1 == INT_MAX) {
-            	continue;
-            }
             op_cost[op.get_id()] = c1;
             critical_entries[op.get_id()] = new_critical_entries;
 	     }
@@ -208,10 +190,8 @@ void HTwoHeuristic::update_hm_table() {
  * Extends given partial effect by adding additional fact.
  */
 void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op) {
-	Tuple pre = precondition_cache[op.get_id()];
-    int num_variables = task_proxy.get_variables().size();
-    for (int i = 0; i < num_variables; ++i) {
-        if (contradictions_cache[op.get_id()][i]) {
+    for (size_t i = 0; i < task_proxy.get_variables().size(); ++i) {
+        if (effect_conflict_cache[op.get_id()][i]) {
         	continue;
         }
     	for (int j = 0; j < task_proxy.get_variables()[i].get_domain_size(); ++j) {
@@ -225,7 +205,7 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op) {
             if (hm_table.at(hm_pair) <= op_cost[op.get_id()]) {
             	continue;
             }
-        	int c2 = extend_eval(extend_fact, pre, op_cost[op.get_id()]);
+        	int c2 = extend_eval(extend_fact, precondition_cache[op.get_id()], op_cost[op.get_id()]);
         	if (c2 != INT_MAX) {
             	update_hm_entry(hm_pair, c2 + op.get_cost());
         	}
@@ -239,17 +219,11 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op) {
 int HTwoHeuristic::eval(const Tuple &t, unordered_set<Pair, PairHash>& critical_entries) const {
     vector<Pair> pairs = generate_all_pairs(t);
     int max = 0;
-    critical_entries.clear();
     for (Pair &pair : pairs) {
         int h = hm_table.at(pair);
         if (h > max) {
-            if (h == INT_MAX) {
-                critical_entries.clear();
-                return INT_MAX;
-            }
             max = h;
-            critical_entries.clear();
-            critical_entries.insert(pair);
+            critical_entries = {pair};
         } else if (h == max) {
             critical_entries.insert(pair);
         }
@@ -270,7 +244,7 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
                   return INT_MAX;
           	}
             // extend_fact ∈ pre
-        	continue;
+        	return eval;
         }
         Pair key = (fact0.var < extend_fact.var) ? Pair(fact0, extend_fact) : Pair(extend_fact, fact0);
         int h = hm_table.at(key);
@@ -289,25 +263,7 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
  * Adds operators to the queue if f is precondition and was updated.
  */
 void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
-    vector<int> operator_ids = op_dict[p.first];
-
-    for (int op_id : operator_ids) {
-        auto it = critical_entries[op_id].find(p);
-        if (it != critical_entries[op_id].end()) {
-            critical_entries[op_id].erase(it);
-        }
-        if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
-            op_queue.push_back(op_id);
-            is_op_in_queue.insert(op_id);
-        }
-    }
-
-    if (p.second.var == -1) {
-        return;
-    }
-    operator_ids = op_dict[p.second];
-    for (int op_id : operator_ids) {
-
+    for (int op_id : op_dict[p.first]) {
         auto it = critical_entries[op_id].find(p);
         if (it != critical_entries[op_id].end()) {
             critical_entries[op_id].erase(it);
