@@ -84,12 +84,12 @@ protected:
 
     // Methods for updating table
     void update_hm_table();
-    void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
+    void extend_tuple(const FactPair &f, const OperatorProxy &op);
     int eval(const Tuple &t, std::unordered_set<Pair, PairHash>& critical_entries) const;
     int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
 
     int update_hm_entry(const Pair &p, int val);
-    void add_operator_to_queue(const Pair &p, int val);
+    void add_operator_to_queue(const Pair &p);
 
 	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
 
