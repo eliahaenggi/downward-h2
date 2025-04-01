@@ -162,6 +162,7 @@ void HTwoHeuristic::init_operator_queue() {
  */
 void HTwoHeuristic::update_hm_table() {
      while (!op_queue.empty()) {
+       	 log << op_queue.size() << "\n";
          OperatorProxy op = task_proxy.get_operators()[op_queue.front()];
          op_queue.pop_front();
          is_op_in_queue.erase(op.get_id());
@@ -264,6 +265,20 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
  */
 void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
     for (int op_id : op_dict[p.first]) {
+        auto it = critical_entries[op_id].find(p);
+        if (it != critical_entries[op_id].end()) {
+            critical_entries[op_id].erase(it);
+        }
+        if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
+            op_queue.push_back(op_id);
+            is_op_in_queue.insert(op_id);
+        }
+    }
+
+    if (p.second.var == -1) {
+    	return;
+    }
+    for (int op_id : op_dict[p.second]) {
         auto it = critical_entries[op_id].find(p);
         if (it != critical_entries[op_id].end()) {
             critical_entries[op_id].erase(it);
