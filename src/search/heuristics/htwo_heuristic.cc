@@ -135,13 +135,11 @@ int HTwoHeuristic::check_in_initial_state(
 
 
 void HTwoHeuristic::init_operator_queue() {
-  	op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
 	for (OperatorProxy op : task_proxy.get_operators()) {
     	// Initialize operator queue with applicable operators
         if (is_op_applicable(precondition_cache[op.get_id()])) {
             op_queue.push_back(op.get_id());
             is_op_in_queue.insert(op.get_id());
-            op_cost[op.get_id()] = 0;
         }
     }
 }

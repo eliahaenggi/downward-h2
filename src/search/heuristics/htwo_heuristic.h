@@ -67,7 +67,6 @@ protected:
     std::vector<Tuple> precondition_cache;
     std::vector<std::vector<Pair>> partial_effect_cache;
     std::vector<std::vector<bool>> effect_conflict_cache; // Stores if variable is in effect of operator
-   	std::vector<int> op_cost;
     // Stores for each FactPair a list of operators where the fact occures in pre
     mutable std::unordered_map<FactPair, std::vector<int>, FactPairHash> op_dict;
 
