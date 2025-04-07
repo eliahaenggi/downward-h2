@@ -177,22 +177,12 @@ void HTwoHeuristic::update_hm_table() {
                 	extend_tuple(partial_eff.first, op, c1);
             	}
         	}
-        } else {
-            if (c1 == INT_MAX) {
-            	continue;
-            }
-            for (EffectProxy eff : op.get_effects()) {
-        	    FactPair effect = eff.get_fact().get_pair();
-            	for (FactPair entry : changed_entries[op.get_id()]) {
-                	Pair hm_pair = effect.var > entry.var ? Pair(entry, effect) : Pair(effect, entry);
-                    int c2 = extend_eval(entry, precondition_cache[op.get_id()], op_cost[op.get_id()]);
-        			if (c2 != INT_MAX) {
-            			update_hm_entry(hm_pair, c2 + op.get_cost());
-        			}
-            	}
-    	    }
+            continue;
         }
-
+        if (c1 == INT_MAX) {
+            continue;
+        }
+        handle_changed_entries(op);
     }
 }
 
@@ -215,10 +205,29 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
             }
             Pair hm_pair = f.var > extend_fact.var ? Pair(extend_fact, f) : Pair(f, extend_fact);
             // Check if table entry can be updated with current op (without extend_Fact considered)
-            if (hm_table.at(hm_pair) <= eval) {
+            if (hm_table.at(hm_pair) <= eval + op.get_cost()) {
             	continue;
             }
         	int c2 = extend_eval(extend_fact, pre, eval);
+        	if (c2 != INT_MAX) {
+            	update_hm_entry(hm_pair, c2 + op.get_cost());
+        	}
+        }
+    }
+}
+
+/*
+ * Handles changed entries for op. Used if op is achievable with same cost as in last iteration
+ */
+void HTwoHeuristic::handle_changed_entries(const OperatorProxy &op) {
+	for (EffectProxy eff : op.get_effects()) {
+    	FactPair effect = eff.get_fact().get_pair();
+        for (FactPair entry : changed_entries[op.get_id()]) {
+        	Pair hm_pair = effect.var > entry.var ? Pair(entry, effect) : Pair(effect, entry);
+            if (hm_table.at(hm_pair) <= op_cost[op.get_id()] + op.get_cost()) {
+            	continue;
+            }
+            int c2 = extend_eval(entry, precondition_cache[op.get_id()], op_cost[op.get_id()]);
         	if (c2 != INT_MAX) {
             	update_hm_entry(hm_pair, c2 + op.get_cost());
         	}

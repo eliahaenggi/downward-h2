@@ -71,7 +71,6 @@ protected:
     std::vector<std::unordered_set<FactPair, FactPairHash>> changed_entries;
     // Stores for each FactPair a list of operators where the fact occures in pre
     mutable std::unordered_map<FactPair, std::vector<int>, FactPairHash> op_dict;
-	bool found_new_cost = false;
 
     // Methods for initalizing data structures
     void init_hm_table(const Tuple &state_facts);
@@ -86,6 +85,7 @@ protected:
     void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
     int eval(const Tuple &t) const;
     int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
+    void handle_changed_entries(const OperatorProxy &op);
 
     int update_hm_entry(const Pair &p, int val);
     void add_operator_to_queue(const Pair &p);
