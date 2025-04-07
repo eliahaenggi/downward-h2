@@ -136,12 +136,12 @@ int HTwoHeuristic::check_in_initial_state(
 
 void HTwoHeuristic::init_operator_queue() {
   	op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
+    changed_entries.assign(task_proxy.get_operators().size(), unordered_set<FactPair, FactPairHash>());
 	for (OperatorProxy op : task_proxy.get_operators()) {
     	// Initialize operator queue with applicable operators
         if (is_op_applicable(precondition_cache[op.get_id()])) {
             op_queue.push_back(op.get_id());
             is_op_in_queue.insert(op.get_id());
-            op_cost[op.get_id()] = 0;
         }
     }
 }
@@ -163,23 +163,37 @@ bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
  * Updates hm_table until no further improvements are made.
  */
 void HTwoHeuristic::update_hm_table() {
-     while (!op_queue.empty()) {
-         OperatorProxy op = task_proxy.get_operators()[op_queue.front()];
-         op_queue.pop_front();
-         is_op_in_queue.erase(op.get_id());
+    while (!op_queue.empty()) {
+        OperatorProxy op = task_proxy.get_operators()[op_queue.front()];
+        op_queue.pop_front();
+        is_op_in_queue.erase(op.get_id());
+        int c1 = eval(precondition_cache[op.get_id()]);
+        if (c1 < op_cost[op.get_id()]) {
+            changed_entries[op.get_id()].clear();
+        	op_cost[op.get_id()] = c1;
+        	for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
+           		update_hm_entry(partial_eff, c1 + op.get_cost());
+            	if (partial_eff.second.var == -1) {
+                	extend_tuple(partial_eff.first, op, c1);
+            	}
+        	}
+        } else {
+            if (c1 == INT_MAX) {
+            	continue;
+            }
+            for (EffectProxy eff : op.get_effects()) {
+        	    FactPair effect = eff.get_fact().get_pair();
+            	for (FactPair entry : changed_entries[op.get_id()]) {
+                	Pair hm_pair = effect.var > entry.var ? Pair(entry, effect) : Pair(effect, entry);
+                    int c2 = extend_eval(entry, precondition_cache[op.get_id()], op_cost[op.get_id()]);
+        			if (c2 != INT_MAX) {
+            			update_hm_entry(hm_pair, c2 + op.get_cost());
+        			}
+            	}
+    	    }
+        }
 
-         int c1 = eval(precondition_cache[op.get_id()]);
-         if (c1 == INT_MAX) {
-             continue;
-         }
-         for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
-              update_hm_entry(partial_eff, c1 + op.get_cost());
-
-             if (partial_eff.second.var == -1) {
-                 extend_tuple(partial_eff.first, op, c1);
-             }
-         }
-     }
+    }
 }
 
 
@@ -261,14 +275,36 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
 /*
  * Adds operators to the queue if f is precondition and was updated.
  */
-void HTwoHeuristic::add_operator_to_queue(const FactPair &f) {
-	vector<int> operator_ids = op_dict[f];
-    for (int op_id : operator_ids) {
+void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
+    if (p.second.var == -1) {
+    	for (int op_id : op_dict[p.first]) {
+        	if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
+            	op_queue.push_back(op_id);
+            	is_op_in_queue.insert(op_id);
+        	}
+    	}
+        return;
+    }
+
+    for (int op_id : op_dict[p.first]) {
         if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
             op_queue.push_back(op_id);
             is_op_in_queue.insert(op_id);
         }
+        if (changed_entries[op_id].find(p.second) == changed_entries[op_id].end() && !effect_conflict_cache[op_id][p.second.var]) {
+    		 changed_entries[op_id].insert(p.second);
+    	}
     }
+    for (int op_id : op_dict[p.second]) {
+        if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
+            op_queue.push_back(op_id);
+            is_op_in_queue.insert(op_id);
+        }
+        if (changed_entries[op_id].find(p.first) == changed_entries[op_id].end() && !effect_conflict_cache[op_id][p.first.var]) {
+    		 changed_entries[op_id].insert(p.first);
+    	}
+    }
+
 }
 
 /*
@@ -278,10 +314,7 @@ void HTwoHeuristic::add_operator_to_queue(const FactPair &f) {
 int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     if (hm_table[p] > val) {
         hm_table[p] = val;
-        add_operator_to_queue(p.first);
-        if (p.second.var != -1) {
-            add_operator_to_queue(p.second);
-        }
+        add_operator_to_queue(p);
         return val;
     }
     return -1;
