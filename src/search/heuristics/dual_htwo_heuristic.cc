@@ -47,8 +47,7 @@ int DualHTwoHeuristic::compute_heuristic(const State &ancestor_state) {
         	state_atoms.push_back(FactPair(i, state_values[i]));
         }
     }
-    Pair empty_pair = Pair(FactPair(-1, -1), FactPair(-1, -1));
-    int h = eval(state_atoms, empty_pair);
+    int h = eval(state_atoms);
     if (h == INT_MAX) {
         return DEAD_END;
     }
