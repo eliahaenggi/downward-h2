@@ -91,7 +91,7 @@ def make_comparison_tables():
     report(exp.eval_dir, outfile)
 
 SCATTER_PLOT_PAIRS = [
-    ('astar-pi-m', 'astar-h2', rev, rev, attribute)
+    ('astar-h2', 'astar-h2', rev, rev, attribute)
     for attribute in ['total_time', 'memory', 'preprocessing_time']
 ]
 

@@ -84,11 +84,11 @@ protected:
     void update_hm_table();
     void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
     int eval(const Tuple &t) const;
-    int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
-    void handle_changed_entries(const OperatorProxy &op);
+    inline int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
+    inline void handle_changed_entries(const OperatorProxy &op);
 
-    int update_hm_entry(const Pair &p, int val);
-    void add_operator_to_queue(const Pair &p);
+    inline void update_hm_entry(const Pair &p, int val);
+    inline void add_operator_to_queue(const Pair &p);
 
 	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
 
