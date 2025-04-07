@@ -69,6 +69,8 @@ protected:
     std::vector<std::vector<bool>> effect_conflict_cache; // Stores if variable is in effect of operator
    	std::vector<int> op_cost;
     std::vector<std::unordered_set<FactPair, FactPairHash>> changed_entries;
+    std::vector<Pair> critical_entries;
+    std::unordered_set<Pair, PairHash> critical_entries_set;
     // Stores for each FactPair a list of operators where the fact occures in pre
     mutable std::unordered_map<FactPair, std::vector<int>, FactPairHash> op_dict;
 
@@ -83,12 +85,12 @@ protected:
     // Methods for updating table
     void update_hm_table();
     void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
-    int eval(const Tuple &t) const;
-    int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
-    void handle_changed_entries(const OperatorProxy &op);
+    int eval(const Tuple &t, Pair &max_entry) const;
+    inline int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
+    inline void handle_changed_entries(const OperatorProxy &op);
 
-    int update_hm_entry(const Pair &p, int val);
-    void add_operator_to_queue(const Pair &p);
+    inline int update_hm_entry(const Pair &p, int val);
+    inline void add_operator_to_queue(const Pair &p);
 
 	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
 

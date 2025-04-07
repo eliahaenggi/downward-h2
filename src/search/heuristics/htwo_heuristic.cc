@@ -42,7 +42,8 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     init_hm_table(state_facts);
     init_operator_queue();
     update_hm_table();
-    int h = eval(goals);
+    Pair empty_pair = Pair(FactPair(-1,-1), FactPair(-1,-1));
+    int h = eval(goals, empty_pair);
     if (h == INT_MAX) {
         return DEAD_END;
     }
@@ -137,11 +138,14 @@ int HTwoHeuristic::check_in_initial_state(
 void HTwoHeuristic::init_operator_queue() {
   	op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
     changed_entries.assign(task_proxy.get_operators().size(), unordered_set<FactPair, FactPairHash>());
+    critical_entries.assign(task_proxy.get_operators().size(), Pair(FactPair(-1, -1), FactPair(-1, -1)));
+    critical_entries_set = unordered_set<Pair, PairHash>();
 	for (OperatorProxy op : task_proxy.get_operators()) {
     	// Initialize operator queue with applicable operators
         if (is_op_applicable(precondition_cache[op.get_id()])) {
             op_queue.push_back(op.get_id());
             is_op_in_queue.insert(op.get_id());
+            op_cost[op.get_id()] = 0;
         }
     }
 }
@@ -165,13 +169,20 @@ bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
 void HTwoHeuristic::update_hm_table() {
     while (!op_queue.empty()) {
         OperatorProxy op = task_proxy.get_operators()[op_queue.front()];
+        int op_id = op.get_id();
         op_queue.pop_front();
-        is_op_in_queue.erase(op.get_id());
-        int c1 = eval(precondition_cache[op.get_id()]);
-        if (c1 < op_cost[op.get_id()]) {
-            changed_entries[op.get_id()].clear();
-        	op_cost[op.get_id()] = c1;
-        	for (Pair &partial_eff : partial_effect_cache[op.get_id()]) {
+        is_op_in_queue.erase(op_id);
+        int c1 = op_cost[op_id];
+        if (critical_entries_set.find(critical_entries[op_id]) == critical_entries_set.end() && c1 != 0) {
+          	Pair new_critical_entry = Pair(FactPair(-1, -1), FactPair(-1, -1));
+        	c1 = eval(precondition_cache[op_id], new_critical_entry);
+            critical_entries[op_id] = new_critical_entry;
+            critical_entries_set.insert(new_critical_entry);
+        }
+        if (c1 < op_cost[op_id] || c1 == 0) {
+            changed_entries[op_id].clear();
+        	op_cost[op_id] = c1;
+        	for (Pair &partial_eff : partial_effect_cache[op_id]) {
            		update_hm_entry(partial_eff, c1 + op.get_cost());
             	if (partial_eff.second.var == -1) {
                 	extend_tuple(partial_eff.first, op, c1);
@@ -238,12 +249,13 @@ void HTwoHeuristic::handle_changed_entries(const OperatorProxy &op) {
 /*
  * Evaluates tuple by computing the maximum heuristic value among all its partial tuples. Used for pre(op) and goal.
  */
-int HTwoHeuristic::eval(const Tuple &t) const {
+int HTwoHeuristic::eval(const Tuple &t, Pair &max_entry) const {
     vector<Pair> pairs = generate_all_pairs(t);
     int max = 0;
     for (Pair &pair : pairs) {
         int h = hm_table.at(pair);
         if (h > max) {
+            max_entry = pair;
         	if (h == INT_MAX) {
             	return INT_MAX;
             }
@@ -324,6 +336,7 @@ int HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     if (hm_table[p] > val) {
         hm_table[p] = val;
         add_operator_to_queue(p);
+        critical_entries_set.erase(p);
         return val;
     }
     return -1;
