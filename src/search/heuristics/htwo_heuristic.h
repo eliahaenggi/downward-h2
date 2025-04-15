@@ -67,6 +67,7 @@ protected:
     std::vector<Tuple> precondition_cache;
     std::vector<std::vector<Pair>> partial_effect_cache;
     std::vector<std::vector<bool>> effect_conflict_cache; // Stores if variable is in effect of operator
+
    	std::vector<int> op_cost;
     std::vector<std::unordered_set<FactPair, FactPairHash>> changed_entries;
     // Stores for each FactPair a list of operators where the fact occures in pre
@@ -85,7 +86,7 @@ protected:
     void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
     int eval(const Tuple &t) const;
     inline int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
-    inline void handle_changed_entries(const OperatorProxy &op);
+    inline void extend_changed_entry(const OperatorProxy &op);
 
     inline void update_hm_entry(const Pair &p, int val);
     inline void add_operator_to_queue(const Pair &p);

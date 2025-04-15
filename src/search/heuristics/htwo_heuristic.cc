@@ -171,21 +171,20 @@ void HTwoHeuristic::update_hm_table() {
         op_queue.pop_front();
         is_op_in_queue.erase(op_id);
         int c1 = eval(precondition_cache[op_id]);
-        if (c1 < op_cost[op_id]) {
-            changed_entries[op_id].clear();
-        	op_cost[op_id] = c1;
-        	for (Pair &partial_eff : partial_effect_cache[op_id]) {
-           		update_hm_entry(partial_eff, c1 + cost);
-            	if (partial_eff.second.var == -1) {
-                	extend_tuple(partial_eff.first, op, c1);
-            	}
+        if (c1 == op_cost[op_id]) {
+          	if (c1 != INT_MAX) {
+		    	extend_changed_entry(op);
         	}
             continue;
         }
-        if (c1 == INT_MAX) {
-            continue;
+        changed_entries[op_id].clear();
+        op_cost[op_id] = c1;
+        for (Pair &partial_eff : partial_effect_cache[op_id]) {
+        	update_hm_entry(partial_eff, c1 + cost);
+            if (partial_eff.second.var == -1) {
+                extend_tuple(partial_eff.first, op, c1);
+            }
         }
-        handle_changed_entries(op);
     }
 }
 
@@ -225,7 +224,7 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
 /*
  * Handles changed entries for op. Used if op is achievable with same cost as in last iteration
  */
-void HTwoHeuristic::handle_changed_entries(const OperatorProxy &op) {
+void HTwoHeuristic::extend_changed_entry(const OperatorProxy &op) {
     const int op_id = op.get_id();
     const Tuple &pre = precondition_cache[op_id];
     const int op_base_cost = op.get_cost();
@@ -304,7 +303,6 @@ void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
     	}
         return;
     }
-
     for (int op_id : op_dict[p.first]) {
         if (is_op_in_queue.find(op_id) == is_op_in_queue.end()) {
             op_queue.push_back(op_id);
@@ -323,7 +321,6 @@ void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
     		 changed_entries[op_id].insert(p.first);
     	}
     }
-
 }
 
 /*
