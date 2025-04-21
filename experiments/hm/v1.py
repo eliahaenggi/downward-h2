@@ -14,10 +14,9 @@ ARCHIVE_PATH = "ai/downward/TODO"
 DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_DIR = os.environ["DOWNWARD_REPO"]
 BENCHMARKS_DIR = os.environ["DOWNWARD_BENCHMARKS"]
-REVISIONS = ["803da3c8a76263475a9493fc2221e8b786f7ea31"]
+REVISIONS = ["803da3c8a76263475a9493fc2221e8b786f7ea31", "8d6e50096ce7ecb14402abbd02b74f1ef07db903"]
 BUILDS = ["release"]
 CONFIG_NICKS = [
-    ("astar-pi-m", ["--search", "astar(hmax(pi_m_compilation=True))"]),
     ("astar-h2", ["--search", "astar(h2())"])
 ]
 CONFIGS = [
@@ -92,7 +91,7 @@ def make_comparison_tables():
     report(exp.eval_dir, outfile)
 
 SCATTER_PLOT_PAIRS = [
-    ('astar-pi-m', 'astar-h2', rev, rev, attribute)
+    ('astar-h2', 'astar-h2', rev, rev, attribute)
     for attribute in ['total_time', 'memory', 'preprocessing_time']
 ]
 
