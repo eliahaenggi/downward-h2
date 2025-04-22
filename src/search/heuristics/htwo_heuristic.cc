@@ -40,7 +40,6 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     }
     Tuple state_facts = task_properties::get_fact_pairs(state);
     init_hm_table(state_facts);
-    init_operator_queue();
     update_hm_table();
     int h = eval(goals);
     if (h == INT_MAX) {
@@ -53,37 +52,15 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
 * Sets up all auxiliary data structures concerning operators.
 */
 void HTwoHeuristic::init_operator_caches() {
-  	vector<int> empty_pre_op = {};
-    for (auto op : task_proxy.get_operators()) {
-        if (op.get_preconditions().empty()) {
-            empty_pre_op.push_back(op.get_id());
-        }
-    }
-    const int num_variables = task_proxy.get_variables().size();
-    for (int i = 0; i < num_variables; ++i) {
-        const int domain1_size = task_proxy.get_variables()[i].get_domain_size();
-        for (int j = 0; j < domain1_size; ++j) {
-			op_dict[FactPair(i, j)] = empty_pre_op;
-        }
-    }
     precondition_cache = {};
     partial_effect_cache = {};
     effect_conflict_cache.assign(task_proxy.get_operators().size(), std::vector<bool>(task_proxy.get_variables().size(), false));
+    binary_operators = {};
 	for (OperatorProxy op : task_proxy.get_operators()) {
         // Setup precondition cache
         Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
     	precondition_cache.push_back(preconditions);
-
-        // Setup op_dict
-        for (auto pre : preconditions) {
-        	op_dict[pre].push_back(op.get_id());
-        }
-
-        // Check for operators without preconditions -> automatically add to op_dict
-        if (preconditions.empty()) {
-            empty_pre_op.push_back(op.get_id());
-        }
 
         // Setup partial effect cache
     	Tuple effects;
@@ -92,7 +69,60 @@ void HTwoHeuristic::init_operator_caches() {
             effect_conflict_cache[op.get_id()][eff.get_fact().get_pair().var] = true;
     	}
     	sort(effects.begin(), effects.end());
-		partial_effect_cache.push_back(generate_all_pairs(effects));
+        std::vector<Pair> partial_effects = generate_all_pairs(effects);
+        partial_effect_cache.push_back(partial_effects);
+		//log << "Op " << op.get_id() << ", pre: " << preconditions << ", eff: " << effects << endl;
+        for (auto partial : partial_effects) {
+            //log << "Add bin op pre: " << preconditions << ", eff: " << partial.first << ", " << partial.second << endl;
+        	binary_operators.push_back(BinaryOperator(preconditions, partial, op.get_cost(), op.get_id()));
+
+            if (partial.second.var == -1) {
+            	// Extend binary operators with preconditions still true
+                for (auto pre : preconditions) {
+                	if (!effect_conflict_cache[op.get_id()][pre.var]) {
+						Pair pair = partial.first.var < pre.var ? Pair(partial.first, pre) : Pair(pre, partial.first);
+                        //log << "Add bin op pre: " << preconditions << ", eff: " << pair.first << ", " << pair.second << endl;
+        				binary_operators.push_back(BinaryOperator(preconditions, pair, op.get_cost(), op.get_id()));
+                	}
+                }
+                // Extend binary operators with other atoms
+                extend_binary_operators(partial.first, op);
+            }
+        }
+    }
+}
+
+void HTwoHeuristic::extend_binary_operators(const FactPair &f, const OperatorProxy &op) {
+    const auto &variables = task_proxy.get_variables();
+    const int op_id = op.get_id();
+    const int op_cost = op.get_cost();
+    for (size_t i = 0; i < variables.size(); ++i) {
+        if (effect_conflict_cache[op_id][i]) {
+        	continue;
+        }
+        const int domain_size = variables[i].get_domain_size();
+    	for (int j = 0; j < domain_size; ++j) {
+        	const FactPair extend_fact = FactPair(i, j);
+            const Pair hm_pair = f.var > extend_fact.var ? Pair(extend_fact, f) : Pair(f, extend_fact);
+            vector<FactPair> pre = precondition_cache[op_id];
+            if (find(pre.begin(), pre.end(), extend_fact) == pre.end()) {
+            	pre.push_back(extend_fact);
+            }
+           set<int> vars;
+            bool is_valid = true;
+            for (const FactPair &fact : pre) { // O(V log V)
+                if (vars.count(fact.var) != 0) { // O(log V)
+                    is_valid = false;
+                    break;
+                }
+                vars.insert(fact.var);
+            }
+            sort(pre.begin(), pre.end());
+            if (is_valid) {
+            	//log << "Add bin op pre: " << pre << ", eff: " << hm_pair.first << ", " << hm_pair.second << endl;
+				binary_operators.push_back(BinaryOperator(pre, hm_pair, op_cost, op_id));
+            }
+        }
     }
 }
 
@@ -164,28 +194,15 @@ bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
  * Updates hm_table until no further improvements are made.
  */
 void HTwoHeuristic::update_hm_table() {
-    while (!op_queue.empty()) {
-        const int op_id = op_queue.front();
-        OperatorProxy op = task_proxy.get_operators()[op_id];
-        const int cost = op.get_cost();
-        op_queue.pop_front();
-        is_op_in_queue.erase(op_id);
-        int c1 = eval(precondition_cache[op_id]);
-        if (c1 == op_cost[op_id]) {
-          	if (c1 != INT_MAX) {
-		    	extend_changed_entry(op);
-        	}
-            continue;
+    do {
+        was_updated = false;
+        for (auto op : binary_operators) {
+			int c1 = eval(op.preconditions);
+			if (c1 != INT_MAX) {
+            	update_hm_entry(op.effect, c1 + op.base_cost);
+			}
         }
-        changed_entries[op_id].clear();
-        op_cost[op_id] = c1;
-        for (Pair &partial_eff : partial_effect_cache[op_id]) {
-        	update_hm_entry(partial_eff, c1 + cost);
-            if (partial_eff.second.var == -1) {
-                extend_tuple(partial_eff.first, op, c1);
-            }
-        }
-    }
+    } while (was_updated);
 }
 
 
@@ -330,7 +347,7 @@ void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
 void HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     if (hm_table[p] > val) {
         hm_table[p] = val;
-        add_operator_to_queue(p);
+		was_updated = true;
     }
 }
 

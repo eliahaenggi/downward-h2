@@ -45,6 +45,7 @@ class HTwoHeuristic : public Heuristic {
             return h2 * MOD + h1;
         }
     };
+
     struct PairHash {
         std::size_t operator()(const Pair &pair) const {
             return pair.hash;
@@ -57,10 +58,22 @@ class HTwoHeuristic : public Heuristic {
         }
     };
 
+
+    struct BinaryOperator {
+    std::vector<FactPair> preconditions;
+    Pair effect;
+    int base_cost;
+    int old_op_id;
+
+    BinaryOperator(std::vector<FactPair> pre,
+                  Pair eff, int cost, int id) : preconditions(pre), effect(eff), base_cost(cost), old_op_id(id) {}
+	};
     // data structures
 protected:
     std::unordered_map<Pair, int, PairHash> hm_table;
+    std::vector<BinaryOperator> binary_operators;
     std::deque<int> op_queue;
+    bool was_updated;
 
     // Auxiliary data structurs that speed up implementation (Could also be removed in case of memory issues)
     std::unordered_set<int> is_op_in_queue; // stores all operators that are in queue for constant time look up
@@ -78,6 +91,7 @@ protected:
     int check_in_initial_state(
     const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
     void init_operator_caches();
+    void extend_binary_operators(const FactPair &f, const OperatorProxy &op);
     void init_operator_queue();
     bool is_op_applicable(Tuple pre) const;
 
