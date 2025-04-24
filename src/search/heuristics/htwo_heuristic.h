@@ -3,6 +3,8 @@
 
 #include "../heuristic.h"
 
+#include "../algorithms/priority_queues.h"
+
 #include <algorithm>
 #include <iostream>
 #include <string>
@@ -19,11 +21,10 @@ class Options;
 namespace htwo_heuristic {
 class HTwoHeuristic : public Heuristic {
     protected:
-    using Tuple = std::vector<FactPair>;
 
     // parameters
     const bool has_cond_effects;
-    Tuple goals;
+    std::vector<FactPair> goals;
 
 
     struct Pair {
@@ -64,48 +65,41 @@ class HTwoHeuristic : public Heuristic {
     Pair effect;
     int base_cost;
     int old_op_id;
+    int cost;
+    int unsatisfied_preconditions;
+    int id;
 
     BinaryOperator(std::vector<FactPair> pre,
-                  Pair eff, int cost, int id) : preconditions(pre), effect(eff), base_cost(cost), old_op_id(id) {}
+                  Pair eff, int cost, int old_id, int i) : preconditions(pre), effect(eff), base_cost(cost), old_op_id(old_id), id(i) {}
 	};
     // data structures
 protected:
     std::unordered_map<Pair, int, PairHash> hm_table;
+    std::unordered_map<Pair, std::vector<int>, PairHash> precondition_of;
     std::vector<BinaryOperator> binary_operators;
-    std::deque<int> op_queue;
-    bool was_updated;
+    priority_queues::AdaptiveQueue<Pair> queue;
+    std::unordered_set<Pair, PairHash> partial_goals;
 
-    // Auxiliary data structurs that speed up implementation (Could also be removed in case of memory issues)
-    std::unordered_set<int> is_op_in_queue; // stores all operators that are in queue for constant time look up
-    std::vector<Tuple> precondition_cache;
-    std::vector<std::vector<Pair>> partial_effect_cache;
-    std::vector<std::vector<bool>> effect_conflict_cache; // Stores if variable is in effect of operator
+    void enqueue_if_necessary(Pair pair, int cost) {
+        if (hm_table.at(pair) > cost) {
+            hm_table[pair] = cost;
+            queue.push(cost, pair);
+        }
+    }
+    // Methods for initializing binary ops (called once)
+    void init_binary_operators();
+    void extend_binary_operators(const FactPair &f, const OperatorProxy &op, std::vector<bool>& effect_conflict);
+    void setup_precondition_of();
 
-   	std::vector<int> op_cost;
-    std::vector<std::unordered_set<FactPair, FactPairHash>> changed_entries;
-    // Stores for each FactPair a list of operators where the fact occures in pre
-    mutable std::unordered_map<FactPair, std::vector<int>, FactPairHash> op_dict;
-
-    // Methods for initalizing data structures
-    void init_hm_table(const Tuple &state_facts);
+    // Methods for initalizing hm_table (called once per eval)
+    void init_hm_table(const std::vector<FactPair> &state_facts);
     int check_in_initial_state(
     const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
-    void init_operator_caches();
-    void extend_binary_operators(const FactPair &f, const OperatorProxy &op);
-    void init_operator_queue();
-    bool is_op_applicable(Tuple pre) const;
 
     // Methods for updating table
-    void update_hm_table();
-    void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
-    int eval(const Tuple &t) const;
-    inline int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
-    inline void extend_changed_entry(const OperatorProxy &op);
+    int update_hm_table();
 
-    inline void update_hm_entry(const Pair &p, int val);
-    inline void add_operator_to_queue(const Pair &p);
-
-	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
+	std::vector<Pair> generate_all_pairs(const std::vector<FactPair> &base_tuple) const;
 
     void print_table() const;
 

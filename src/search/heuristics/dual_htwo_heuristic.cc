@@ -29,7 +29,8 @@ DualHTwoHeuristic::DualHTwoHeuristic(
     HTwoHeuristic::task_proxy = TaskProxy(*dual_task);
     goals = {};
     // Initialize op caches with dual task (constructor of htwo_heuristic uses original task)
-    HTwoHeuristic::init_operator_caches();
+    HTwoHeuristic::init_binary_operators();
+    HTwoHeuristic::setup_precondition_of();
     HTwoHeuristic::compute_heuristic(State(*dual_task, std::move(values)));
     HTwoHeuristic::task_proxy = original_task_proxy;
     goals = original_goals;
@@ -53,6 +54,24 @@ int DualHTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     }
     return h;
 
+}
+
+/*
+ * Evaluates tuple by computing the maximum heuristic value among all its partial tuples. Used for pre(op) and goal.
+ */
+int DualHTwoHeuristic::eval(const vector<FactPair> &fp)  {
+    vector<Pair> pairs = generate_all_pairs(fp);
+    int max = 0;
+    for (Pair &pair : pairs) {
+        int h = hm_table.find(pair)->second;
+        if (h > max) {
+        	if (h == INT_MAX) {
+            	return INT_MAX;
+            }
+        	max = h;
+        }
+    }
+    return max;
 }
 
 

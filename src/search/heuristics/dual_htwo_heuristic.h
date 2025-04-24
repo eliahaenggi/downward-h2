@@ -17,6 +17,7 @@ class DualHTwoHeuristic : public htwo_heuristic::HTwoHeuristic {
 
 protected:
 	virtual int compute_heuristic(const State &ancestor_state) override;
+	int eval(const std::vector<FactPair> &fp);
 
 	std::shared_ptr<AbstractTask> dual_task;
 
@@ -29,6 +30,7 @@ public:
         utils::Verbosity verbosity);
 
     int create_hm_table(std::vector<int> init_values);
+
 
 
 };
