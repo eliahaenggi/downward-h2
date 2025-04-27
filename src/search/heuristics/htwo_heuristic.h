@@ -64,15 +64,12 @@ class HTwoHeuristic : public Heuristic {
     std::vector<FactPair> preconditions;
     Pair effect;
     int base_cost;
-    int old_op_id;
-    int cost;
     int unsatisfied_preconditions;
-    int id;
 
     BinaryOperator(std::vector<FactPair> pre,
-                  Pair eff, int cost, int old_id, int i) : preconditions(pre), effect(eff), base_cost(cost), old_op_id(old_id), id(i) {}
+                  Pair eff, int cost) : preconditions(pre), effect(eff), base_cost(cost) {}
 	};
-    // data structures
+
 protected:
     std::unordered_map<Pair, int, PairHash> hm_table;
     std::unordered_map<Pair, std::vector<int>, PairHash> precondition_of;
