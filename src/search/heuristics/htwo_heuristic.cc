@@ -55,37 +55,47 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
 */
 void HTwoHeuristic::init_binary_operators() {
 	binary_operators = {};
+    binary_operators.reserve(task_proxy.get_operators().size() * 8);
 
+    const size_t num_vars = task_proxy.get_variables().size();
+    vector<FactPair> preconditions;
+    vector<FactPair> effects;
+    vector<bool> effect_conflict(num_vars, false);
+    preconditions.reserve(num_vars);
+    effects.reserve(num_vars);
 	for (OperatorProxy op : task_proxy.get_operators()) {
 
         vector<FactPair> preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
 
-    	vector<FactPair> effects;
+    	effects.clear();
         // Used for fast checks if var is an effect of op
-        vector<bool> effect_conflict = std::vector<bool>(task_proxy.get_variables().size(), false);
+        fill(effect_conflict.begin(), effect_conflict.end(), false);
     	for (EffectProxy eff : op.get_effects()) {
-        	effects.push_back(eff.get_fact().get_pair());
-            effect_conflict[eff.get_fact().get_pair().var] = true;
+            FactPair fact = eff.get_fact().get_pair();
+        	effects.push_back(fact);
+            effect_conflict[fact.var] = true;
     	}
     	sort(effects.begin(), effects.end());
         std::vector<Pair> partial_effects = generate_all_pairs(effects);
-		//log << "Op " << op.get_id() << ", pre: " << preconditions << ", eff: " << effects << endl;
-        for (auto& partial : partial_effects) {
-            //log << "Add bin op pre: " << preconditions << ", eff: " << partial.first << ", " << partial.second << endl;
-        	binary_operators.push_back(BinaryOperator(preconditions, partial, op.get_cost()));
+ 	    const size_t eff_size = effects.size();
+        for (size_t i = 0; i < eff_size; ++i) {
+            for (size_t j = i; j < eff_size; ++j) {
+                const FactPair &first = effects[i];
+                const FactPair &second = (i == j) ? FactPair(-1, -1) : effects[j];
+                binary_operators.emplace_back(preconditions, Pair(first, second), op.get_cost());
 
-            if (partial.second.var == -1) {
-            	// Extend binary operators with preconditions still true
-                for (auto pre : preconditions) {
-                	if (!effect_conflict[pre.var]) {
-						Pair pair = partial.first.var < pre.var ? Pair(partial.first, pre) : Pair(pre, partial.first);
-                        //log << "Add bin op pre: " << preconditions << ", eff: " << pair.first << ", " << pair.second << endl;
-        				binary_operators.push_back(BinaryOperator(preconditions, pair, op.get_cost()));
-                	}
+                if (second.var == -1) {
+                    for (const FactPair &pre : preconditions) {
+                        if (!effect_conflict[pre.var]) {
+                            const Pair new_pair = (first.var < pre.var)
+                                ? Pair(first, pre)
+                                : Pair(pre, first);
+                            binary_operators.emplace_back(preconditions, new_pair, op.get_cost());
+                        }
+                    }
+                    extend_binary_operators(first, op, effect_conflict);
                 }
-                // Extend binary operators with other atoms
-                extend_binary_operators(partial.first, op, effect_conflict);
             }
         }
     }
@@ -115,8 +125,8 @@ void HTwoHeuristic::extend_binary_operators(const FactPair &f, const OperatorPro
                 }
                 vars.insert(fact.var);
             }
-            sort(pre.begin(), pre.end());
             if (is_valid) {
+                sort(pre.begin(), pre.end());
 				binary_operators.push_back(BinaryOperator(pre, hm_pair, op_cost));
             }
         }
@@ -130,9 +140,8 @@ void HTwoHeuristic::setup_precondition_of() {
         for (int j = 0; j < domain1_size; ++j) {
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
             precondition_of[single_pair] = {};
-
             for (size_t o = 0; o < binary_operators.size(); ++o) {
-                BinaryOperator op = binary_operators[o];
+                BinaryOperator& op = binary_operators[o];
             	if (find(op.preconditions.begin(), op.preconditions.end(), FactPair(i, j)) != op.preconditions.end()) {
                 	precondition_of[single_pair].push_back(o);
                 }
@@ -143,12 +152,18 @@ void HTwoHeuristic::setup_precondition_of() {
                     Pair pair(FactPair(i, j), FactPair(k, l));
                     precondition_of[pair] = {};
                     for (size_t o = 0; o < binary_operators.size(); ++o) {
-                        BinaryOperator op = binary_operators[o];
-                    	if (find(op.preconditions.begin(), op.preconditions.end(), pair.first) != op.preconditions.end()) {
-                            if (find(op.preconditions.begin(), op.preconditions.end(), pair.second) != op.preconditions.end()) {
-                        		precondition_of[pair].push_back(o);
-                    		}
-                    	}
+                        BinaryOperator& op = binary_operators[o];
+                        bool found1 = false, found2 = false;
+                        for (const FactPair &p : op.preconditions) {
+                            if (!found1 && p.var == i && p.value == j)
+                                found1 = true;
+                            else if (!found2 && p.var == k && p.value == l)
+                                found2 = true;
+                            if (found1 && found2) {
+                                precondition_of[pair].push_back(o);
+                                break;
+                            }
+                        }
                     }
                 }
             }
@@ -161,7 +176,6 @@ void HTwoHeuristic::setup_precondition_of() {
  * Initializes h^m table.
  * If entry is contained in init state facts assigns 0, and infinity otherwise.
  * Pair containing variable -1 at second position indicates single fact.
- * Resets unsatisfied precondition and cost for every bin op.
  */
 void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
     unordered_set<FactPair, FactPairHash> state_facts_set(state_facts.begin(), state_facts.end());
@@ -197,10 +211,12 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
 	// Set unsatisfied pre and cost of binary operators, insert precondition free operators to queue
     for (BinaryOperator &op : binary_operators) {
     	op.unsatisfied_preconditions = op.preconditions.size() * (op.preconditions.size() + 1) / 2;
+        //log << "Op " << op.old_op_id << " : " << op.id << " " << op.preconditions << endl;
         if (op.unsatisfied_preconditions == 0) {
         	enqueue_if_necessary(op.effect, op.base_cost);
         }
     }
+
 }
 
 /*
@@ -220,6 +236,10 @@ int HTwoHeuristic::update_hm_table() {
       	pair<int, Pair> top_pair = queue.pop();
         int distance = top_pair.first;
         Pair pair = top_pair.second;
+        //log << pair.first << ", " << pair.second << "   " << distance << endl;
+        if (hm_table.at(pair) < distance) {
+        	continue;
+        }
         if (partial_goals.find(pair) != partial_goals.end() && --unsolved_goals == 0) {
             return distance;
         }

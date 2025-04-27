@@ -169,7 +169,9 @@ class IssueExperiment(FastDownwardExperiment):
                           "logistics00:probLOGISTICS-5-0.pddl",
                           "logistics00:probLOGISTICS-6-0.pddl",
                           "movie:prob01.pddl",
-                          "satellite:p01-pfile1.pddl"]
+                          "satellite:p01-pfile1.pddl",
+                          "data-network:p01.pddl",
+                          "openstacks:p01.pddl"]
 
 
     DEFAULT_TABLE_ATTRIBUTES = [
