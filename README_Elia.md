@@ -54,17 +54,3 @@ Note: Heuristic values differ from those of the standard h2 heuristic due to the
 
 This directory contains all experimental scripts and setup. The main script v1.py runs experiments using Downward Lab, a framework for managing and analyzing planning experiments.
 
----
-
-## Requirements
-
-- Python 3.8+
-- Fast Downward (base fork)
-- Downward Lab (for experiments)
-- Optional: Machetli (for debugging or introspection)
-
----
-
-## Acknowledgements
-
-This thesis was conducted at the University of Basel, supervised by Clemens Büchner and examined by Prof. Malte Helmert. Experiments were executed on the sciCORE cluster. Special thanks go to the teams behind Fast Downward, Downward Lab, and Machetli for their tools and support.
