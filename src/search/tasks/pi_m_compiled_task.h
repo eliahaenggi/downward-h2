@@ -48,16 +48,18 @@ class PiMCompiledTask : public tasks::DelegatingTask {
     std::vector<MetaOperator> meta_operators;
 public:
 	PiMCompiledTask(const std::shared_ptr<AbstractTask> &parent);
-
+    // Main functions to set up compiled task
     void init_meta_atom_map();
     void setup_init_and_goal_states();
     void setup_meta_operators();
 
+    // Helper functions
     FactPair translate_into_meta_atom(FactPair first_atom, FactPair second_atom);
     bool contradict_precondition(int op_id, FactPair s_atom);
     std::vector<FactPair> generate_meta_preconditions(int op_id);
     std::vector<FactPair> generate_meta_effects(int op_id, std::unordered_set<int> &effect_vars);
 
+    // Functions to access compiled task transformation
     virtual int get_num_variables() const override;
     virtual int get_variable_domain_size(int var) const override;
     virtual int get_operator_cost(int index, bool is_axiom) const override;

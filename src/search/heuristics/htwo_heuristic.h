@@ -19,11 +19,10 @@ class Options;
 namespace htwo_heuristic {
 class HTwoHeuristic : public Heuristic {
     protected:
-    using Tuple = std::vector<FactPair>;
 
     // parameters
     const bool has_cond_effects;
-    Tuple goals;
+    std::vector<FactPair> goals;
 
 
     struct Pair {
@@ -64,7 +63,7 @@ protected:
 
     // Auxiliary data structurs that speed up implementation (Could also be removed in case of memory issues)
     std::unordered_set<int> is_op_in_queue; // stores all operators that are in queue for constant time look up
-    std::vector<Tuple> precondition_cache;
+    std::vector<std::vector<FactPair>> precondition_cache;
     std::vector<std::vector<Pair>> partial_effect_cache;
     std::vector<std::vector<bool>> effect_conflict_cache; // Stores if variable is in effect of operator
 
@@ -74,26 +73,26 @@ protected:
     mutable std::unordered_map<FactPair, std::vector<int>, FactPairHash> op_dict;
 
     // Methods for initalizing data structures
-    void init_hm_table(const Tuple &state_facts);
+    void init_hm_table(const std::vector<FactPair> &init_state_atoms);
     int check_in_initial_state(
     const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;
     void init_operator_caches();
     void init_operator_queue();
-    bool is_op_applicable(Tuple pre) const;
+    bool is_op_applicable(std::vector<FactPair> pre) const;
 
     // Methods for updating table
     void update_hm_table();
-    void extend_tuple(const FactPair &f, const OperatorProxy &op, int eval);
-    int eval(const Tuple &t) const;
-    inline int extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const;
+    void extend_entry(const FactPair &f, const OperatorProxy &op, int eval);
+    int eval(const std::vector<FactPair> &atom_set) const;
+    inline int extend_eval(const FactPair &extend_fact, const std::vector<FactPair> &pre, int eval) const;
     inline void extend_changed_entry(const OperatorProxy &op);
 
     inline void update_hm_entry(const Pair &p, int val);
     inline void add_operator_to_queue(const Pair &p);
 
-	std::vector<Pair> generate_all_pairs(const Tuple &base_tuple) const;
+	std::vector<Pair> generate_all_pairs(const std::vector<FactPair> &base_atom_set) const;
 
-    void print_table() const;
+    void dump_table() const;
 
 protected:
     virtual int compute_heuristic(const State &ancestor_state) override;

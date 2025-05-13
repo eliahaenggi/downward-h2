@@ -13,7 +13,9 @@ PiMCompiledTask::PiMCompiledTask(const shared_ptr<AbstractTask> &parent) : Deleg
 	setup_meta_operators();
 
 }
-
+/*
+ * Initialize meta_atom_map that serves as dictionary between SAS+ and STRIPS representation.
+ */
 void PiMCompiledTask::init_meta_atom_map() {
 	meta_atom_map = {{pair(FactPair(-1, -1), FactPair(-1, -1)), 0}};
     int num_var = parent->get_num_variables();
@@ -34,12 +36,15 @@ void PiMCompiledTask::init_meta_atom_map() {
     }
 }
 
+/*
+ * Setup initial_state_values and goals. goal_atoms for constant time check if atom part of goal.
+ */
 void PiMCompiledTask::setup_init_and_goal_states() {
     initial_state_values.assign(meta_atom_map.size(), 0);
     vector<int> init_state_values = parent->get_initial_state_values();
-    unordered_set<FactPair, FactPairHash> goal_facts;
+    unordered_set<FactPair, FactPairHash> goal_atoms;
     for (int i = 0; i < parent->get_num_goals(); ++i) {
-    	goal_facts.insert(parent->get_goal_fact(i));
+        goal_atoms.insert(parent->get_goal_fact(i));
     }
 
 	for (const auto& [current_atoms, i] : meta_atom_map) {
@@ -48,14 +53,17 @@ void PiMCompiledTask::setup_init_and_goal_states() {
         		initial_state_values[i] = 1;
         	}
         }
-        if (current_atoms.first.var == -1 || goal_facts.find(current_atoms.first) != goal_facts.end()) {
-        	if (current_atoms.second.var == -1 || goal_facts.find(current_atoms.second) != goal_facts.end()) {
+        if (current_atoms.first.var == -1 || goal_atoms.find(current_atoms.first) != goal_atoms.end()) {
+        	if (current_atoms.second.var == -1 || goal_atoms.find(current_atoms.second) != goal_atoms.end()) {
             	goals.push_back(FactPair(i, 1));
         	}
         }
     }
 }
 
+/*
+ * Add meta operators to meta_operators list by first building meta-operator for S = ∅. Afterwards, extend new_pre and new_eff with specific atom in S.
+ */
 void PiMCompiledTask::setup_meta_operators() {
     meta_operators = {};
     for (int op_id = 0; op_id < parent->get_num_operators(); ++op_id) {
@@ -99,6 +107,9 @@ void PiMCompiledTask::setup_meta_operators() {
     }
 }
 
+/*
+ * Translates SAS+ atoms into STRIPS variables by using meta_atom_map.
+ */
 FactPair PiMCompiledTask::translate_into_meta_atom(FactPair first_atom, FactPair second_atom) {
     pair atom_pair = pair(FactPair(-1, -1), FactPair(-1, -1));
 	if (first_atom < second_atom) {
@@ -123,6 +134,9 @@ bool PiMCompiledTask::contradict_precondition(int op_id, FactPair s_atom) {
     return false;
 }
 
+/*
+ * Generate meta_preconditions for op for S = ∅.
+ */
 vector<FactPair> PiMCompiledTask::generate_meta_preconditions(int op_id) {
     vector<FactPair> new_pre = {FactPair(meta_atom_map[{FactPair(-1, -1), FactPair(-1, -1)}], 1)};
     for (int i = 0; i < parent->get_num_operator_preconditions(op_id, false); ++i) {
@@ -138,6 +152,9 @@ vector<FactPair> PiMCompiledTask::generate_meta_preconditions(int op_id) {
     return new_pre;
 }
 
+/*
+ * Generate meta_effects for op for S = ∅.
+ */
 vector<FactPair> PiMCompiledTask::generate_meta_effects(int op_id, unordered_set<int> &effect_vars) {
     vector<FactPair> new_eff;
     for (int i = 0; i < parent->get_num_operator_effects(op_id, false); ++i) {

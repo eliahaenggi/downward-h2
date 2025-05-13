@@ -19,16 +19,17 @@ DualHTwoHeuristic::DualHTwoHeuristic(
     bool cache_estimates, const string &description,
     utils::Verbosity verbosity)
     : HTwoHeuristic(transform, cache_estimates, description, verbosity) {
+    // Create dual task
     dual_task = extra_tasks::build_dual_task(transform);
     log << "Initializied dual task" << endl;
     std::vector<int> values = dual_task->get_initial_state_values();
-
+    // Save original task as we need it for search itself
     TaskProxy original_task_proxy = HTwoHeuristic::task_proxy;
     vector<FactPair> original_goals = HTwoHeuristic::goals;
-    // Set task_proxy to dual_task only for creatomg hm_table
+    // Set task_proxy to dual_task only for creating hm_table
     HTwoHeuristic::task_proxy = TaskProxy(*dual_task);
     goals = {};
-    // Initialize op caches with dual task (constructor of htwo_heuristic uses original task)
+    // Initialize op caches with dual task (constructor of htwo_heuristic uses original task).
     HTwoHeuristic::init_operator_caches();
     HTwoHeuristic::compute_heuristic(State(*dual_task, std::move(values)));
     HTwoHeuristic::task_proxy = original_task_proxy;
@@ -36,7 +37,9 @@ DualHTwoHeuristic::DualHTwoHeuristic(
 }
 
 
-// Removed goal check in the beginning as goals are detected rather fast anyways
+/*
+ * Convert states into STRIPS representation and negate all values. Look up with eval function on precomputed hm_table.
+ */
 int DualHTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     State state = Heuristic::convert_ancestor_state(ancestor_state);
     vector<int> state_values = state.get_unpacked_values();

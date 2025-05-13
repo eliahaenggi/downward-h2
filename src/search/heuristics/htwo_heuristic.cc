@@ -3,11 +3,8 @@
 #include "../plugins/plugin.h"
 
 #include "../task_utils/task_properties.h"
-#include "../utils/logging.h"
 
-#include <cassert>
 #include <climits>
-#include <set>
 
 using namespace std;
 
@@ -38,7 +35,7 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     if (task_properties::is_goal_state(task_proxy, state)) {
         return 0;
     }
-    Tuple state_facts = task_properties::get_fact_pairs(state);
+    vector<FactPair> state_facts = task_properties::get_fact_pairs(state);
     init_hm_table(state_facts);
     init_operator_queue();
     update_hm_table();
@@ -49,8 +46,8 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     return h;
 }
 
-/**
-* Sets up all auxiliary data structures concerning operators.
+/*
+* Sets up all auxiliary operator data structures. Since these do not change throughout the search process, this is done once in the constructor.
 */
 void HTwoHeuristic::init_operator_caches() {
   	vector<int> empty_pre_op = {};
@@ -71,7 +68,7 @@ void HTwoHeuristic::init_operator_caches() {
     effect_conflict_cache.assign(task_proxy.get_operators().size(), std::vector<bool>(task_proxy.get_variables().size(), false));
 	for (OperatorProxy op : task_proxy.get_operators()) {
         // Setup precondition cache
-        Tuple preconditions = task_properties::get_fact_pairs(op.get_preconditions());
+        vector<FactPair> preconditions = task_properties::get_fact_pairs(op.get_preconditions());
     	sort(preconditions.begin(), preconditions.end());
     	precondition_cache.push_back(preconditions);
 
@@ -86,7 +83,7 @@ void HTwoHeuristic::init_operator_caches() {
         }
 
         // Setup partial effect cache
-    	Tuple effects;
+        vector<FactPair> effects;
     	for (EffectProxy eff : op.get_effects()) {
         	effects.push_back(eff.get_fact().get_pair());
             effect_conflict_cache[op.get_id()][eff.get_fact().get_pair().var] = true;
@@ -97,26 +94,26 @@ void HTwoHeuristic::init_operator_caches() {
 }
 
 /*
- * Initializes h^m table.
- * If entry is contained in init state facts assigns 0, and infinity otherwise.
+ * Initializes hm table.
+ * If entry is contained in init_state_atoms assigns 0, and infinity otherwise.
  * Pair containing variable -1 at second position indicates single fact.
  */
-void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
-    unordered_set<FactPair, FactPairHash> state_facts_set(state_facts.begin(), state_facts.end());
-    state_facts_set.insert(FactPair(-1, -1));
+void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &init_state_atoms) {
+    unordered_set<FactPair, FactPairHash> state_atoms_set(init_state_atoms.begin(), init_state_atoms.end());
+        state_atoms_set.insert(FactPair(-1, -1));
 
     const int num_variables = task_proxy.get_variables().size();
     for (int i = 0; i < num_variables; ++i) {
         const int domain1_size = task_proxy.get_variables()[i].get_domain_size();
         for (int j = 0; j < domain1_size; ++j) {
             Pair single_pair(FactPair(i, j), FactPair(-1, -1));
-            hm_table[single_pair] = check_in_initial_state(single_pair, state_facts_set);
+            hm_table[single_pair] = check_in_initial_state(single_pair, state_atoms_set);
 
             for (int k = i + 1; k < num_variables; ++k) {
                 const int domain2_size = task_proxy.get_variables()[k].get_domain_size();
                 for (int l = 0; l < domain2_size; ++l) {
                     Pair pair(FactPair(i, j), FactPair(k, l));
-                    hm_table[pair] = check_in_initial_state(pair, state_facts_set);
+                    hm_table[pair] = check_in_initial_state(pair, state_atoms_set);
                 }
             }
         }
@@ -124,16 +121,18 @@ void HTwoHeuristic::init_hm_table(const std::vector<FactPair> &state_facts) {
 }
 
 /*
- * Check if Pair is contained in inital state facts. Unordered set allows constant time lookup.
+ * Check if Pair is contained in initial state atoms. Unordered set allows constant time lookup.
  */
 int HTwoHeuristic::check_in_initial_state(
-    const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const {
-    bool found_first = state_facts_set.find(hm_entry.first) != state_facts_set.end();
-    bool found_second = (state_facts_set.find(hm_entry.second) != state_facts_set.end());
+    const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_atoms_set) const {
+    bool found_first = state_atoms_set.find(hm_entry.first) != state_atoms_set.end();
+    bool found_second = (state_atoms_set.find(hm_entry.second) != state_atoms_set.end());
     return (found_first && found_second) ? 0 : INT_MAX;
 }
 
-
+/*
+ * Adds operators to queue if they are applicable in the initial state.
+ */
 void HTwoHeuristic::init_operator_queue() {
   	op_cost.assign(task_proxy.get_operators().size(), INT_MAX);
     changed_entries.assign(task_proxy.get_operators().size(), unordered_set<FactPair, FactPairHash>());
@@ -149,8 +148,9 @@ void HTwoHeuristic::init_operator_queue() {
 
 /*
  * Check if op is applicable in initial state. Only works for initial state as it only considers single atom table entries.
+ * Precondition-free operators are always applicable.
  */
-bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
+bool HTwoHeuristic::is_op_applicable(vector<FactPair> pre) const {
 	for (auto fact : pre) {
     	if (hm_table.find(Pair(fact, FactPair(-1, -1)))->second != 0) {
         	return false;
@@ -161,7 +161,7 @@ bool HTwoHeuristic::is_op_applicable(Tuple pre) const {
 
 
 /*
- * Updates hm_table until no further improvements are made.
+ * Updates hm_table until operator queue is empty and with it, no further improvements are possible.
  */
 void HTwoHeuristic::update_hm_table() {
     while (!op_queue.empty()) {
@@ -182,7 +182,7 @@ void HTwoHeuristic::update_hm_table() {
         for (Pair &partial_eff : partial_effect_cache[op_id]) {
         	update_hm_entry(partial_eff, c1 + cost);
             if (partial_eff.second.var == -1) {
-                extend_tuple(partial_eff.first, op, c1);
+                extend_entry(partial_eff.first, op, c1);
             }
         }
     }
@@ -190,13 +190,13 @@ void HTwoHeuristic::update_hm_table() {
 
 
 /*
- * Extends given partial effect by adding additional fact.
+ * Extends given partial effect by adding additional atom.
  */
-void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int eval) {
+void HTwoHeuristic::extend_entry(const FactPair &f, const OperatorProxy &op, int eval) {
     const auto &variables = task_proxy.get_variables();
     const int op_id = op.get_id();
     const int op_cost = op.get_cost();
-    const Tuple &pre = precondition_cache[op_id];
+    const vector<FactPair> &pre = precondition_cache[op_id];
     for (size_t i = 0; i < variables.size(); ++i) {
         if (effect_conflict_cache[op_id][i]) {
         	continue;
@@ -222,11 +222,12 @@ void HTwoHeuristic::extend_tuple(const FactPair &f, const OperatorProxy &op, int
 }
 
 /*
- * Handles changed entries for op. Used if op is achievable with same cost as in last iteration
+ * Handles changed entries for op. Used if op is achievable with the same cost as in last iteration.
+ * In this case, it is enough to consider extending entries with all changed atoms, as potential improvements do not come from op but from entries changed due to oth
  */
 void HTwoHeuristic::extend_changed_entry(const OperatorProxy &op) {
     const int op_id = op.get_id();
-    const Tuple &pre = precondition_cache[op_id];
+    const vector<FactPair> &pre = precondition_cache[op_id];
     const int op_base_cost = op.get_cost();
     const int cost = op_cost[op_id];
 	for (EffectProxy eff : op.get_effects()) {
@@ -245,10 +246,10 @@ void HTwoHeuristic::extend_changed_entry(const OperatorProxy &op) {
 }
 
 /*
- * Evaluates tuple by computing the maximum heuristic value among all its partial tuples. Used for pre(op) and goal.
+ * Evaluates atom set by computing the maximum heuristic value among all its subsets (subset size <= 2). Used for pre(op) and goal.
  */
-int HTwoHeuristic::eval(const Tuple &t) const {
-    vector<Pair> pairs = generate_all_pairs(t);
+int HTwoHeuristic::eval(const vector<FactPair> &atom_set) const {
+    vector<Pair> pairs = generate_all_pairs(atom_set);
     int max = 0;
     for (Pair &pair : pairs) {
         int h = hm_table.find(pair)->second;
@@ -263,9 +264,9 @@ int HTwoHeuristic::eval(const Tuple &t) const {
 }
 
 /*
- * Evaluates extend_fact + pre. pre already evaluated with eval.
+ * Evaluates extend_fact + pre. pre already evaluated with integer eval. Runtime is linear in |pre|.
  */
-int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, int eval) const {
+int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const vector<FactPair> &pre, int eval) const {
     int fact_eval = hm_table.find(Pair(extend_fact, FactPair(-1, -1)))->second;
     int max = eval > fact_eval? eval : fact_eval;
     for (FactPair fact0 : pre) {
@@ -291,7 +292,7 @@ int HTwoHeuristic::extend_eval(const FactPair &extend_fact, const Tuple &pre, in
 }
 
 /*
- * Adds operators to the queue if f is precondition and was updated.
+ * Adds operators to the queue if atom in pair p is at least partially contained in pre(op). Called if hm_table entry of p is updated.
  */
 void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
     if (p.second.var == -1) {
@@ -325,7 +326,7 @@ void HTwoHeuristic::add_operator_to_queue(const Pair &p) {
 
 /*
  * Updates heuristic value of a pair in hm_table.
- * Affected operators are added to queue.
+ * Affected operators are potentially added to queue.
  */
 void HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
     if (hm_table[p] > val) {
@@ -335,24 +336,24 @@ void HTwoHeuristic::update_hm_entry(const Pair &p, int val) {
 }
 
 /*
- * Generates all partial set of size <= 2 from given base tuple.
+ * Generates all partial set of size <= 2 from given base atom set.
  */
-vector<HTwoHeuristic::Pair> HTwoHeuristic::generate_all_pairs(const Tuple &base_tuple) const {
-    const size_t n = base_tuple.size();
+vector<HTwoHeuristic::Pair> HTwoHeuristic::generate_all_pairs(const vector<FactPair> &base_atom_set) const {
+    const size_t n = base_atom_set.size();
 	vector<Pair> res;
     res.reserve(n * (n + 1) / 2);
 
     for (size_t i = 0; i < n; ++i) {
-        res.emplace_back(base_tuple[i], FactPair(-1, -1));
+        res.emplace_back(base_atom_set[i], FactPair(-1, -1));
 
         for (size_t j = i + 1; j < n; ++j) {
-            res.emplace_back(base_tuple[i], base_tuple[j]);
+            res.emplace_back(base_atom_set[i], base_atom_set[j]);
         }
     }
     return res;
 }
 
-void HTwoHeuristic::print_table() const {
+void HTwoHeuristic::dump_table() const {
     stringstream ss;
     for (auto entry : hm_table) {
         Pair pair = entry.first;
