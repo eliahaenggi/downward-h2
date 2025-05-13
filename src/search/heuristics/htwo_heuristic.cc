@@ -34,7 +34,7 @@ HTwoHeuristic::HTwoHeuristic(
 
 
 /*
- * Computes the h^m value for a given state:
+ * Computes the h^2 value for a given state:
  */
 int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
     State state = convert_ancestor_state(ancestor_state);
@@ -51,7 +51,9 @@ int HTwoHeuristic::compute_heuristic(const State &ancestor_state) {
 }
 
 /**
-* Sets up all auxiliary data structures concerning operators.
+* Sets up all auxiliary data structures concerning binary operators.
+* Binary operators that fully consist of op effects or op preconditions are added here to binary_operators. Binary ops with partial effects are added in
+* extend_binary_operators function.
 */
 void HTwoHeuristic::init_binary_operators() {
 	binary_operators = {};
@@ -101,6 +103,9 @@ void HTwoHeuristic::init_binary_operators() {
     }
 }
 
+/**
+* Add binary operators that partially contain an op effet. Closely related to the extend_entry function in the optimized h2 heuristic on the main branch.
+*/
 void HTwoHeuristic::extend_binary_operators(const FactPair &f, const OperatorProxy &op, vector<bool>& effect_conflict) {
     const auto &variables = task_proxy.get_variables();
     const int op_cost = op.get_cost();
@@ -133,6 +138,9 @@ void HTwoHeuristic::extend_binary_operators(const FactPair &f, const OperatorPro
     }
 }
 
+/**
+* Setup precondition_of data structure. precondition_of is a map from pairs to operators that contain these pairs as preconditon.
+*/
 void HTwoHeuristic::setup_precondition_of() {
     const int num_variables = task_proxy.get_variables().size();
     for (int i = 0; i < num_variables; ++i) {
@@ -229,7 +237,9 @@ int HTwoHeuristic::check_in_initial_state(
     return (found_first && found_second) ? 0 : INT_MAX;
 }
 
-
+/**
+* Populate hm_table by processing atom pairs out of priortity queue. Whem all goals are reachable, distance is the correct h2 value for the goal.
+*/
 int HTwoHeuristic::update_hm_table() {
     int unsolved_goals = partial_goals.size();
     while (!queue.empty()) {

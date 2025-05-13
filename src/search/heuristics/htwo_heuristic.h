@@ -12,11 +12,15 @@
 #include <unordered_map>
 #include <deque>
 
-
+/**
+*  h2 heuristic using binary operators. Implementation is closely related to \Pi^2 compilation approach in hmax_heuristic.
+*  Heuristic evaluation is used from hmax, however priority queue contains pairs of atoms instead of single atoms.
+*/
 
 namespace plugins {
 class Options;
 }
+
 
 namespace htwo_heuristic {
 class HTwoHeuristic : public Heuristic {
@@ -75,6 +79,8 @@ protected:
     std::unordered_map<Pair, std::vector<int>, PairHash> precondition_of;
     std::vector<BinaryOperator> binary_operators;
     priority_queues::AdaptiveQueue<Pair> queue;
+
+    // Used for fast checks if pair is part of the goal
     std::unordered_set<Pair, PairHash> partial_goals;
 
     void enqueue_if_necessary(Pair pair, int cost) {
@@ -88,7 +94,7 @@ protected:
     void extend_binary_operators(const FactPair &f, const OperatorProxy &op, std::vector<bool>& effect_conflict);
     void setup_precondition_of();
 
-    // Methods for initalizing hm_table (called once per eval)
+    // Methods for initalizing hm_table (called once per state eval)
     void init_hm_table(const std::vector<FactPair> &state_facts);
     int check_in_initial_state(
     const Pair &hm_entry, const std::unordered_set<FactPair, FactPairHash> &state_facts_set) const;

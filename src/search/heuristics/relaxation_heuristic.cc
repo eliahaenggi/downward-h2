@@ -191,7 +191,7 @@ void RelaxationHeuristic::simplify() {
         assert(utils::is_sorted_unique(get_preconditions_vector(op_id)));
 #endif
 
-    const int MAX_PRECONDITIONS_TO_TEST = 5;
+    const int MAX_PRECONDITIONS_TO_TEST = 50;
 
     if (log.is_at_least_normal()) {
         log << "Simplifying " << unary_operators.size() << " unary operators..." << flush;
