@@ -6,7 +6,7 @@ This repository contains the code developed as part of my Master's thesis titled
 
 ## Repository Overview
 
-This project is based on a fork of [Fast Downward]{https://github.com/aibasel/downward} (revision dated 24.11.2024). The following sections describe the main components and their locations in the codebase.
+This project is based on a fork of [Fast Downward](https://github.com/aibasel/downward) (revision dated 24.11.2024). The following sections describe the main components and their locations in the codebase.
 
 ---
 
