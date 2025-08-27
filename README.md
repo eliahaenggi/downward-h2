@@ -1,12 +1,38 @@
+# Master's Thesis: Efficient Implementation of h² in the Fast Downward Planning System
+
+This repository contains the code developed as part of my Master's thesis, *"Efficient Implementation of h² in the Fast Downward Planning System"*.  
+The thesis explores **computation and optimization of the h² heuristic** within the Fast Downward planner, including performance improvements and alternative implementations.
+
+---
+
+## Abstract
+
+This thesis investigates different implementations of the **critical path heuristic h²** in Fast Downward. Inefficiencies in the existing implementation were identified, and several optimizations were proposed:
+
+- Moving calculations outside the search process  
+- Reusing intermediate results  
+
+The optimized implementation performs significantly better, solving most benchmark problems **more than ten times faster**.  
+
+The thesis also explores the **Π^m compilation method**, computing h² values using h^max on a Π² compiled task. While memory-intensive, this method outperforms the optimized h² implementation. Key optimizations include simplification of the operator set and detection of duplicate/dominated operators.
+
+Additionally, **STRIPS duality** was applied to simulate regression search, allowing reuse of heuristic values. This yields faster evaluations but weaker heuristic estimates due to the SAS⁺→STRIPS transformation.
+
+> Due to the progression search nature, performance comparable to other informed heuristics (e.g., h^max) remains challenging.
+
 <img src="misc/images/fast-downward.svg" width="800" alt="Fast Downward">
 
-# Master's Thesis: Efficient Implementation of h^2 in the Fast Downward Planning System
-
-This repository contains the code developed as part of my Master's thesis titled "Efficient Implementation of h^2 in the Fast Downward Planning System". The thesis explores the computation and optimization of the h2 heuristic within the Fast Downward planner.
+---
 
 ## Repository Overview
 
-This project is based on a fork of [Fast Downward](https://github.com/aibasel/downward) (revision dated 24.11.2024). The following sections describe the main components and their locations in the codebase.
+This project is based on a fork of [Fast Downward](https://github.com/aibasel/downward) (revision dated 24.11.2024).  
+Main components:
+
+- **h² Heuristic Optimization**: `downward/src/heuristics/htwo_heuristic`  
+- **Π^m Compilation**: `downward/src/tasks/pi_m_compiled_task`, `downward/src/heuristics/hmax_heuristic`  
+- **STRIPS Duality h²**: `downward/src/tasks/dual_task`, `downward/src/heuristics/dual_htwo_heuristic`  
+- **Experimental Setup**: `downward/experiments/hm/`
 
 ---
 
