@@ -56,6 +56,3 @@ Note: Heuristic values differ from those of the standard h2 heuristic due to the
 
 This directory contains all experimental scripts and setup. The main script v1.py runs experiments using Downward Lab, a framework for managing and analyzing planning experiments.
 
-You should have received a copy of the GNU General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-```
